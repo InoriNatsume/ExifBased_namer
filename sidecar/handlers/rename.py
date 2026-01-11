@@ -106,6 +106,11 @@ def handle_rename(ctx: JobContext, conn) -> None:
                         "message": str(exc),
                     }
                 )
+                if resume_file:
+                    resume_file.write(f"{path}\n")
+                    resume_written += 1
+                    if resume_written % checkpoint_step == 0:
+                        resume_file.flush()
                 if processed % progress_step == 0 or processed == total:
                     ctx.emit(
                         {
@@ -132,20 +137,20 @@ def handle_rename(ctx: JobContext, conn) -> None:
                     break
                 values_map[key] = match.get("values", [""])[0]
 
-        if status != "OK":
-            processed += 1
-            preview = ensure_preview(ctx.payload, path)
-            ctx.emit(
-                {
-                    "id": ctx.job_id,
-                    "type": "result",
-                    "status": status,
-                    "source": path,
-                    "target": None,
-                    "message": None,
-                    "preview": preview,
-                }
-            )
+            if status != "OK":
+                processed += 1
+                preview = ensure_preview(ctx.payload, path)
+                ctx.emit(
+                    {
+                        "id": ctx.job_id,
+                        "type": "result",
+                        "status": status,
+                        "source": path,
+                        "target": None,
+                        "message": None,
+                        "preview": preview,
+                    }
+                )
                 if resume_file:
                     resume_file.write(f"{path}\n")
                     resume_written += 1
@@ -175,23 +180,29 @@ def handle_rename(ctx: JobContext, conn) -> None:
                     base_name = stem
 
             ext = Path(path).suffix
-            new_name = ensure_unique_name(Path(path).parent, base_name, ext, reserved)
+            candidate = f"{base_name}{ext}"
+            current_name = Path(path).name
+            if candidate.lower() == current_name.lower():
+                new_name = current_name
+            else:
+                new_name = ensure_unique_name(Path(path).parent, base_name, ext, reserved)
             target = str(Path(path).with_name(new_name))
-        if not dry_run and target != path:
-            try:
-                os.rename(path, target)
+
+            if not dry_run and target != path:
+                try:
+                    os.rename(path, target)
                 except Exception as exc:
                     errors += 1
                     processed += 1
-                ctx.emit(
-                    {
-                        "id": ctx.job_id,
-                        "type": "result",
-                        "status": "ERROR",
-                        "source": path,
-                        "message": str(exc),
-                    }
-                )
+                    ctx.emit(
+                        {
+                            "id": ctx.job_id,
+                            "type": "result",
+                            "status": "ERROR",
+                            "source": path,
+                            "message": str(exc),
+                        }
+                    )
                     if resume_file:
                         resume_file.write(f"{path}\n")
                         resume_written += 1
@@ -208,22 +219,22 @@ def handle_rename(ctx: JobContext, conn) -> None:
                                 "skipped": skipped,
                             }
                         )
-                continue
+                    continue
 
-        processed += 1
-        preview_source = path if dry_run else target
-        preview = ensure_preview(ctx.payload, preview_source)
-        ctx.emit(
-            {
-                "id": ctx.job_id,
-                "type": "result",
-                "status": "OK",
-                "source": path,
-                "target": target,
-                "message": None,
-                "preview": preview,
-            }
-        )
+            processed += 1
+            preview_source = path if dry_run else target
+            preview = ensure_preview(ctx.payload, preview_source)
+            ctx.emit(
+                {
+                    "id": ctx.job_id,
+                    "type": "result",
+                    "status": "OK",
+                    "source": path,
+                    "target": target,
+                    "message": None,
+                    "preview": preview,
+                }
+            )
             if resume_file:
                 final_path = path if dry_run else target
                 resume_file.write(f"{final_path}\n")
