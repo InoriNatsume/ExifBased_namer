@@ -427,6 +427,13 @@ select {
   gap: 10px;
 }
 
+.progress-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
 .progress-title {
   font-weight: 600;
 }
@@ -461,6 +468,26 @@ select {
 .muted {
   color: var(--muted);
   font-size: 0.85rem;
+}
+
+.help-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.help-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  background: #f9fbfa;
+  display: grid;
+  gap: 6px;
+}
+
+.help-card h3 {
+  font-size: 1rem;
 }
 
 .muted.small {

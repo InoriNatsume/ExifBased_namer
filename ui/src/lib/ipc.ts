@@ -1,6 +1,6 @@
 ﻿import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
-import type { IpcMessage, IpcRunRequest } from "./types";
+import type { IpcCancelRequest, IpcMessage, IpcRunRequest } from "./types";
 
 declare global {
   interface Window {
@@ -46,6 +46,15 @@ export async function connectSidecar(
 }
 
 export async function runSidecarJob(request: IpcRunRequest): Promise<void> {
+  if (!isTauri()) {
+    throw new Error("브라우저 모드에서는 IPC를 실행할 수 없습니다.");
+  }
+  await invoke("run_sidecar_job", {
+    message: JSON.stringify(request),
+  });
+}
+
+export async function cancelSidecarJob(request: IpcCancelRequest): Promise<void> {
   if (!isTauri()) {
     throw new Error("브라우저 모드에서는 IPC를 실행할 수 없습니다.");
   }

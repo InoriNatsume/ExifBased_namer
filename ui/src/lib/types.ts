@@ -5,6 +5,12 @@
   payload: Record<string, unknown>;
 };
 
+export type IpcCancelRequest = {
+  id: string;
+  type: "cancel";
+};
+
+
 export type IpcMessage =
   | { id?: string; type: "ack"; op?: string }
   | {

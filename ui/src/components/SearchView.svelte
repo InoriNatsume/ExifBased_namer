@@ -16,6 +16,7 @@
     includeNegative: boolean;
     incremental: boolean;
   }) => void;
+  export let onCancel: (() => void) | null = null;
   export let disabled = false;
 
   let folder = "";
@@ -80,15 +81,12 @@
       <input type="checkbox" bind:checked={incremental} /> 증분 스캔
     </label>
   </div>
-  <p class="muted">
-    DB 스캔은 폴더 전체의 태그를 DB에 저장해 검색과 분류 속도를 높입니다. 증분
-    스캔은 이미 처리한 파일을 건너뜁니다.
-  </p>
   <ProgressBar
     label="진행"
     status={displayStatus}
     detail={progressText}
     {processed}
     {total}
+    onCancel={onCancel}
   />
 </section>

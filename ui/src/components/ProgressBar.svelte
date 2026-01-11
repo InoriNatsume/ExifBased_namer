@@ -4,6 +4,7 @@
   export let status = "";
   export let detail = "";
   export let label = "진행";
+  export let onCancel: (() => void) | null = null;
 
   $: hasTotal = total > 0;
   $: percent = hasTotal ? Math.min(100, Math.round((processed / total) * 100)) : 0;
@@ -11,9 +12,14 @@
 
 <div class="progress-panel">
   <div class="progress-header">
-    <span class="progress-title">{label}</span>
-    {#if status}
-      <span class="muted">{status}</span>
+    <div class="progress-title-row">
+      <span class="progress-title">{label}</span>
+      {#if status}
+        <span class="muted">{status}</span>
+      {/if}
+    </div>
+    {#if onCancel}
+      <button class="ghost small" on:click={onCancel}>중단</button>
     {/if}
   </div>
   <div class="progress-track">

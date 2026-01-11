@@ -2,22 +2,24 @@
 
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
+use std::process::{Child, ChildStdin, Command, Stdio};
+use std::sync::{Mutex, OnceLock};
 
 use tauri::{AppHandle, Emitter};
 
-#[tauri::command]
-fn run_sidecar_job(app: AppHandle, message: String) -> Result<(), String> {
-    let app_handle = app.clone();
-    std::thread::spawn(move || {
-        if let Err(err) = spawn_and_stream(&app_handle, &message) {
-            let _ = app_handle.emit("sidecar-log", err);
-        }
-    });
-    Ok(())
+struct SidecarRuntime {
+    child: Child,
+    stdin: ChildStdin,
 }
 
-fn spawn_and_stream(app: &AppHandle, message: &str) -> Result<(), String> {
+static SIDECAR: OnceLock<Mutex<Option<SidecarRuntime>>> = OnceLock::new();
+
+#[tauri::command]
+fn run_sidecar_job(app: AppHandle, message: String) -> Result<(), String> {
+    send_message(&app, &message)
+}
+
+fn start_sidecar(app: &AppHandle) -> Result<SidecarRuntime, String> {
     let root = resolve_root()?;
     let sidecar_path = root.join("sidecar").join("main.py");
     if !sidecar_path.exists() {
@@ -36,13 +38,10 @@ fn spawn_and_stream(app: &AppHandle, message: &str) -> Result<(), String> {
         .spawn()
         .map_err(|err| format!("failed to spawn sidecar: {err}"))?;
 
-    if let Some(mut stdin) = child.stdin.take() {
-        stdin
-            .write_all(message.as_bytes())
-            .and_then(|_| stdin.write_all(b"\n"))
-            .and_then(|_| stdin.flush())
-            .map_err(|err| format!("failed to write to sidecar: {err}"))?;
-    }
+    let stdin = child
+        .stdin
+        .take()
+        .ok_or_else(|| "failed to open sidecar stdin".to_string())?;
 
     if let Some(stderr) = child.stderr.take() {
         let app_handle = app.clone();
@@ -56,15 +55,40 @@ fn spawn_and_stream(app: &AppHandle, message: &str) -> Result<(), String> {
 
     if let Some(stdout) = child.stdout.take() {
         let reader = BufReader::new(stdout);
-        for line in reader.lines().flatten() {
-            let _ = app.emit("sidecar-message", line);
+        let app_handle = app.clone();
+        std::thread::spawn(move || {
+            for line in reader.lines().flatten() {
+                let _ = app_handle.emit("sidecar-message", line);
+            }
+        });
+    }
+
+    Ok(SidecarRuntime { child, stdin })
+}
+
+fn send_message(app: &AppHandle, message: &str) -> Result<(), String> {
+    let holder = SIDECAR.get_or_init(|| Mutex::new(None));
+    let mut guard = holder.lock().map_err(|_| "sidecar lock poisoned".to_string())?;
+
+    if let Some(runtime) = guard.as_mut() {
+        if let Ok(Some(status)) = runtime.child.try_wait() {
+            let _ = app.emit("sidecar-log", format!("sidecar exit: {status}"));
+            *guard = None;
         }
     }
 
-    let status = child
-        .wait()
-        .map_err(|err| format!("failed to wait for sidecar: {err}"))?;
-    let _ = app.emit("sidecar-log", format!("sidecar exit: {status}"));
+    if guard.is_none() {
+        *guard = Some(start_sidecar(app)?);
+    }
+
+    if let Some(runtime) = guard.as_mut() {
+        runtime
+            .stdin
+            .write_all(message.as_bytes())
+            .and_then(|_| runtime.stdin.write_all(b"\n"))
+            .and_then(|_| runtime.stdin.flush())
+            .map_err(|err| format!("failed to write to sidecar: {err}"))?;
+    }
     Ok(())
 }
 

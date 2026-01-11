@@ -15,7 +15,10 @@
     prefixMode: boolean;
     dryRun: boolean;
     includeNegative: boolean;
+    resumeMode: boolean;
   }) => void;
+  export let onClearResume: ((folder: string) => void) | null = null;
+  export let onCancel: (() => void) | null = null;
   export let disabled = false;
 
   let folder = "";
@@ -23,6 +26,7 @@
   let prefixMode = false;
   let dryRun = true;
   let includeNegative = false;
+  let resumeMode = false;
   let localStatus = "";
   let order: string[] = [];
   let selectedVar = "";
@@ -99,7 +103,17 @@
       prefixMode,
       dryRun,
       includeNegative,
+      resumeMode,
     });
+  }
+
+  function clearResume() {
+    if (!folder.trim()) {
+      localStatus = "폴더를 입력하세요.";
+      return;
+    }
+    localStatus = "";
+    onClearResume?.(folder);
   }
 </script>
 
@@ -120,7 +134,7 @@
       bind:value={template}
       placeholder="파일명 형식 (예: [character]_[emotion])"
     />
-    <div class="muted">비워두면 변수 순서대로 자동 생성됩니다.</div>
+    <div class="muted">비우면 변수 순서대로 자동 생성합니다.</div>
   </div>
   <div class="panel inner">
     <div class="section-title small">
@@ -146,15 +160,15 @@
     </div>
     <div class="list">
       {#if order.length === 0}
-        <div class="muted">순서를 추가하면 여기 표시됩니다.</div>
+        <div class="muted">순서를 추가하면 여기에 표시됩니다.</div>
       {:else}
         {#each order as name, index}
           <div class="list-row">
             <span>{index + 1}. {name}</span>
             <span class="spacer"></span>
             <div class="button-row">
-              <button class="ghost small" on:click={() => moveOrder(index, -1)}>▲</button>
-              <button class="ghost small" on:click={() => moveOrder(index, 1)}>▼</button>
+              <button class="ghost small" on:click={() => moveOrder(index, -1)}>위</button>
+              <button class="ghost small" on:click={() => moveOrder(index, 1)}>아래</button>
               <button class="ghost small" on:click={() => removeOrder(index)}>삭제</button>
             </div>
           </div>
@@ -172,16 +186,21 @@
     <label>
       <input type="checkbox" bind:checked={includeNegative} /> 네거티브 태그 포함
     </label>
+    <label>
+      <input type="checkbox" bind:checked={resumeMode} /> 재개 모드
+    </label>
   </div>
-  <p class="muted">
-    접두사 모드는 기존 파일명 앞에 형식을 붙이고, 드라이런은 실제 변경 없이 결과만
-    확인합니다. 충돌 시 @@@숫자가 자동 부여됩니다.
-  </p>
+  <div class="row compact">
+    <button class="ghost" on:click={clearResume} disabled={disabled || !folder.trim()}>
+      재개 파일 삭제
+    </button>
+  </div>
   <ProgressBar
     label="파일명 변경 진행"
     status={displayStatus}
     detail={progressText}
     {processed}
     {total}
+    onCancel={onCancel}
   />
 </section>

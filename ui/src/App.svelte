@@ -1,7 +1,12 @@
 ﻿<script lang="ts">
   import { onMount } from "svelte";
   import { get } from "svelte/store";
-  import { connectSidecar, isTauri, runSidecarJob } from "./lib/ipc";
+  import {
+    cancelSidecarJob,
+    connectSidecar,
+    isTauri,
+    runSidecarJob,
+  } from "./lib/ipc";
   import type { IpcMessage, IpcRunRequest } from "./lib/types";
   import {
     formatEta,
@@ -11,20 +16,24 @@
     type ResultRecord,
     type ResultStatus,
   } from "./lib/models";
-  import { normalizeTags, type Preset, type PresetValue } from "./lib/preset";
+  import type { Preset } from "./lib/preset";
+  import { createPresetJobManager } from "./lib/presetJobs";
   import { jobStore, logStore, resultStore, templateStore } from "./lib/stores";
+  import { applyBuildValues, coerceValues } from "./lib/templateOps";
   import EditorView from "./components/EditorView.svelte";
   import SearchView from "./components/SearchView.svelte";
   import RenameView from "./components/RenameView.svelte";
   import MoveView from "./components/MoveView.svelte";
   import ResultPanel from "./components/ResultPanel.svelte";
   import LogPanel from "./components/LogPanel.svelte";
+  import HelpView from "./components/HelpView.svelte";
 
   const tabs = [
     { id: "editor", label: "편집" },
     { id: "search", label: "검색" },
     { id: "rename", label: "파일명 변경" },
     { id: "move", label: "폴더 분류" },
+    { id: "help", label: "안내" },
     { id: "log", label: "로그" },
   ] as const;
 
@@ -33,10 +42,7 @@
   let activeJobId: string | null = null;
   let presetPath: string | null = null;
   let presetStatus = "";
-  let presetJobId: string | null = null;
-  let presetJobMode: "load" | "save" | "import" | null = null;
-  let presetImportTarget: { variableName: string; mode: "replace" | "append" } | null =
-    null;
+  let resumeClearJobId: string | null = null;
   let buildStatus = "";
   let buildCommonTags: string[] = [];
   let buildStats: Record<string, unknown> | null = null;
@@ -59,6 +65,21 @@
     window.localStorage.setItem(storageKey, path);
     window.localStorage.removeItem("nai.preset.path");
   }
+
+  const presetJobs = createPresetJobManager({
+    isTauri: () => tauriMode,
+    getPresetPath: () => presetPath,
+    setPresetPath,
+    setStatus: (text) => {
+      presetStatus = text;
+    },
+    appendLog,
+    setTemplate: (preset) => templateStore.set(preset),
+    getTemplate: () => get(templateStore),
+    coerceValues,
+    applyBuildValues,
+    runSidecarJob,
+  });
 
   function createJobId(mode: JobMode) {
     return `${mode}-${Date.now()}`;
@@ -102,6 +123,7 @@
       return;
     }
     const eta = formatEta(state.progress);
+    const skipText = state.stats.skipped ? ` SKIP ${state.stats.skipped}` : "";
     if (state.activeJob === "scan") {
       jobStore.update((current) => ({
         ...current,
@@ -117,7 +139,7 @@
     }
     jobStore.update((current) => ({
       ...current,
-      progressText: `진행: ${state.progress.processed}/${state.progress.total} OK ${state.stats.ok} UNKNOWN ${state.stats.unknown} CONFLICT ${state.stats.conflict} ERROR ${state.stats.error} ETA ${eta}`,
+      progressText: `진행: ${state.progress.processed}/${state.progress.total} OK ${state.stats.ok} UNKNOWN ${state.stats.unknown} CONFLICT ${state.stats.conflict} ERROR ${state.stats.error}${skipText} ETA ${eta}`,
     }));
   }
 
@@ -149,45 +171,26 @@
       return;
     }
 
-    if (presetJobId && message.id === presetJobId) {
+    if (presetJobs.handleMessage(message)) {
+      return;
+    }
+
+    if (resumeClearJobId && message.id === resumeClearJobId) {
       if (message.type === "done") {
         const payload =
           message.payload && typeof message.payload === "object"
             ? (message.payload as Record<string, unknown>)
             : null;
-        if (presetJobMode === "load" && payload?.preset) {
-          templateStore.set(payload.preset as Preset);
-          const path = typeof payload.path === "string" ? payload.path : presetPath;
-          if (path) {
-            setPresetPath(path);
-          }
-          presetStatus = "템플릿 불러오기 완료";
-        } else if (presetJobMode === "save") {
-          const path = typeof payload?.path === "string" ? payload.path : presetPath;
-          if (path) {
-            setPresetPath(path);
-          }
-          presetStatus = "템플릿 저장 완료";
-        } else if (presetJobMode === "import" && payload?.values) {
-          const values = coerceValues(payload.values);
-          const target = presetImportTarget;
-          if (target && values.length > 0) {
-            applyBuildValues(target.variableName, values, target.mode);
-            presetStatus = "프리셋 값 가져오기 완료";
-          } else {
-            presetStatus = "가져온 값이 없습니다.";
-          }
-        }
-        presetJobId = null;
-        presetJobMode = null;
-        presetImportTarget = null;
+        const path = typeof payload?.path === "string" ? payload.path : "";
+        setJobStatus("재개 파일 삭제 완료");
+        appendLog(path ? `재개 파일 삭제: ${path}` : "재개 파일 삭제 완료");
       }
       if (message.type === "error") {
-        presetStatus = `오류: ${message.message ?? "알 수 없음"}`;
-        presetJobId = null;
-        presetJobMode = null;
-        presetImportTarget = null;
+        const text = `오류: ${message.message ?? "알 수 없음"}`;
+        setJobStatus(text);
+        appendLog(text);
       }
+      resumeClearJobId = null;
       return;
     }
 
@@ -210,6 +213,9 @@
           stats.skipped = progress.skipped;
         } else {
           stats.error = progress.errors;
+          if (typeof message.skipped === "number") {
+            stats.skipped = message.skipped;
+          }
         }
         return { ...state, progress, stats };
       });
@@ -233,9 +239,17 @@
     }
 
     if (message.type === "done") {
+      if (message.cancelled) {
+        setJobStatus("중단됨");
+        appendLog("작업 중단됨");
+      }
       if (get(jobStore).activeJob === "build_nais") {
-        setJobStatus("완료");
-        buildStatus = "완료";
+        if (!message.cancelled) {
+          setJobStatus("완료");
+          buildStatus = "완료";
+        } else {
+          buildStatus = "중단됨";
+        }
         jobStore.update((state) => ({
           ...state,
           progress: {
@@ -244,6 +258,7 @@
           },
         }));
         updateProgressText();
+        activeJobId = null;
 
         const payload =
           message.payload && typeof message.payload === "object"
@@ -270,7 +285,9 @@
         return;
       }
 
-      setJobStatus("완료");
+      if (!message.cancelled) {
+        setJobStatus("완료");
+      }
       jobStore.update((state) => ({
         ...state,
         progress: {
@@ -284,6 +301,7 @@
         },
       }));
       updateProgressText();
+      activeJobId = null;
       return;
     }
 
@@ -294,6 +312,7 @@
       if (get(jobStore).activeJob === "build_nais") {
         buildStatus = text;
       }
+      activeJobId = null;
     }
   }
 
@@ -321,6 +340,48 @@
       if (mode === "build_nais") {
         buildStatus = text;
       }
+    }
+  }
+
+  async function cancelActiveJob() {
+    if (!tauriMode || !activeJobId) {
+      return;
+    }
+    setJobStatus("중단 요청...");
+    try {
+      await cancelSidecarJob({ id: activeJobId, type: "cancel" });
+      appendLog("중단 요청 전송");
+    } catch (error) {
+      const text = `오류: ${String(error)}`;
+      setJobStatus(text);
+      appendLog(text);
+    }
+  }
+
+  async function clearResumeFile(kind: "rename" | "move", folder: string) {
+    if (!tauriMode) {
+      setJobStatus("브라우저 모드에서는 IPC를 실행할 수 없습니다.");
+      appendLog("브라우저 모드에서는 IPC를 실행할 수 없습니다.");
+      return;
+    }
+    if (!folder.trim()) {
+      setJobStatus("폴더를 입력하세요.");
+      return;
+    }
+    resumeClearJobId = `resume-clear-${kind}-${Date.now()}`;
+    setJobStatus("재개 파일 삭제 중...");
+    try {
+      await runSidecarJob({
+        id: resumeClearJobId,
+        type: "run",
+        op: "resume_clear",
+        payload: { folder, kind },
+      });
+    } catch (error) {
+      const text = `오류: ${String(error)}`;
+      setJobStatus(text);
+      appendLog(text);
+      resumeClearJobId = null;
     }
   }
 
@@ -354,6 +415,7 @@
     prefixMode: boolean;
     dryRun: boolean;
     includeNegative: boolean;
+    resumeMode: boolean;
   }) {
     const template = get(templateStore);
     if (template.variables.length === 0) {
@@ -369,6 +431,8 @@
       dry_run: payload.dryRun,
       include_negative: payload.includeNegative,
       progress_step: 200,
+      resume_mode: payload.resumeMode,
+      checkpoint_step: 200,
       variables: template.variables,
     });
   }
@@ -380,6 +444,7 @@
     template: string;
     dryRun: boolean;
     includeNegative: boolean;
+    resumeMode: boolean;
   }) {
     const template = get(templateStore);
     if (template.variables.length === 0) {
@@ -395,6 +460,8 @@
       dry_run: payload.dryRun,
       include_negative: payload.includeNegative,
       progress_step: 200,
+      resume_mode: payload.resumeMode,
+      checkpoint_step: 200,
       variables: template.variables,
     });
   }
@@ -433,149 +500,6 @@
     templateStore.set({ ...next });
   }
 
-  async function runPresetLoad(path: string) {
-    if (!tauriMode) {
-      presetStatus = "브라우저 모드에서는 실행할 수 없습니다.";
-      appendLog(presetStatus);
-      return;
-    }
-    presetStatus = "템플릿 불러오는 중...";
-    presetJobMode = "load";
-    presetJobId = `preset-load-${Date.now()}`;
-    try {
-      await runSidecarJob({
-        id: presetJobId,
-        type: "run",
-        op: "preset_load",
-        payload: { path },
-      });
-    } catch (error) {
-      presetStatus = `오류: ${String(error)}`;
-      appendLog(presetStatus);
-      presetJobId = null;
-      presetJobMode = null;
-    }
-  }
-
-  async function runPresetSave(path: string) {
-    if (!tauriMode) {
-      presetStatus = "브라우저 모드에서는 실행할 수 없습니다.";
-      appendLog(presetStatus);
-      return;
-    }
-    presetStatus = "템플릿 저장 중...";
-    presetJobMode = "save";
-    presetJobId = `preset-save-${Date.now()}`;
-    try {
-      await runSidecarJob({
-        id: presetJobId,
-        type: "run",
-        op: "preset_save",
-        payload: { path, preset: get(templateStore) },
-      });
-    } catch (error) {
-      presetStatus = `오류: ${String(error)}`;
-      appendLog(presetStatus);
-      presetJobId = null;
-      presetJobMode = null;
-    }
-  }
-
-  async function runPresetImport(
-    path: string,
-    mode: "replace" | "append",
-    variableName: string
-  ) {
-    if (!tauriMode) {
-      presetStatus = "브라우저 모드에서는 실행할 수 없습니다.";
-      appendLog(presetStatus);
-      return;
-    }
-    presetStatus = "프리셋 값 가져오는 중...";
-    presetJobMode = "import";
-    presetJobId = `preset-import-${Date.now()}`;
-    presetImportTarget = { variableName, mode };
-    try {
-      await runSidecarJob({
-        id: presetJobId,
-        type: "run",
-        op: "preset_import",
-        payload: { path },
-      });
-    } catch (error) {
-      presetStatus = `오류: ${String(error)}`;
-      appendLog(presetStatus);
-      presetJobId = null;
-      presetJobMode = null;
-      presetImportTarget = null;
-    }
-  }
-
-  function coerceValues(rawValues: unknown): PresetValue[] {
-    if (!Array.isArray(rawValues)) {
-      return [];
-    }
-    const values: PresetValue[] = [];
-    for (const raw of rawValues) {
-      if (!raw || typeof raw !== "object") {
-        continue;
-      }
-      const name = String((raw as Record<string, unknown>).name ?? "").trim();
-      if (!name) {
-        continue;
-      }
-      const tagList = (raw as Record<string, unknown>).tags;
-      const tags = Array.isArray(tagList)
-        ? normalizeTags(tagList.map((tag) => String(tag)))
-        : [];
-      values.push({ name, tags });
-    }
-    return values;
-  }
-
-  function ensureUniqueValueName(name: string, existing: Set<string>): string {
-    let candidate = name;
-    let idx = 2;
-    while (existing.has(candidate)) {
-      candidate = `${name}_${idx}`;
-      idx += 1;
-    }
-    existing.add(candidate);
-    return candidate;
-  }
-
-  function applyBuildValues(
-    variableName: string,
-    incoming: PresetValue[],
-    mode: "replace" | "append"
-  ) {
-    const template = get(templateStore);
-    const variables = [...template.variables];
-    const index = variables.findIndex((variable) => variable.name === variableName);
-    if (index === -1) {
-      variables.push({ name: variableName, values: incoming });
-      templateStore.set({ ...template, variables });
-      return;
-    }
-
-    if (mode === "replace") {
-      variables[index] = { ...variables[index], values: incoming };
-      templateStore.set({ ...template, variables });
-      return;
-    }
-
-    const existingNames = new Set(variables[index].values.map((value) => value.name));
-    const merged = [
-      ...variables[index].values,
-      ...incoming.map((value) => ({
-        ...value,
-        name: ensureUniqueValueName(value.name, existingNames),
-      })),
-    ];
-    variables[index] = { ...variables[index], values: merged };
-    templateStore.set({ ...template, variables });
-  }
-
   onMount(async () => {
     tauriMode = isTauri();
     setJobStatus(tauriMode ? "대기" : "브라우저 모드");
@@ -588,7 +512,7 @@
           window.localStorage.getItem("nai.preset.path");
         if (stored) {
           setPresetPath(stored);
-          runPresetLoad(stored);
+          presetJobs.runPresetLoad(stored);
         }
       }
     } catch (error) {
@@ -621,13 +545,13 @@
         presetStatus={presetStatus}
         onChange={updatePreset}
         onBuild={runBuild}
-        onPresetLoad={runPresetLoad}
-        onPresetSave={runPresetSave}
+        onPresetLoad={presetJobs.runPresetLoad}
+        onPresetSave={presetJobs.runPresetSave}
         onPresetClear={() => {
           setPresetPath(null);
           presetStatus = "템플릿 자동 불러오기 경로를 초기화했습니다.";
         }}
-        onPresetImport={runPresetImport}
+        onPresetImport={presetJobs.runPresetImport}
         {buildStatus}
         buildStats={buildStats}
         buildCommonTags={buildCommonTags}
@@ -640,6 +564,7 @@
         total={$jobStore.progress.total}
         onSearch={runSearch}
         onScan={runScan}
+        onCancel={activeJobId ? cancelActiveJob : null}
         disabled={!tauriMode}
       />
       <ResultPanel records={$resultStore} title="검색 결과" />
@@ -651,6 +576,8 @@
         processed={$jobStore.progress.processed}
         total={$jobStore.progress.total}
         onRun={runRename}
+        onCancel={activeJobId ? cancelActiveJob : null}
+        onClearResume={(folder) => clearResumeFile("rename", folder)}
         disabled={!tauriMode}
       />
       <ResultPanel records={$resultStore} title="파일명 변경 결과" />
@@ -662,9 +589,13 @@
         processed={$jobStore.progress.processed}
         total={$jobStore.progress.total}
         onRun={runMove}
+        onCancel={activeJobId ? cancelActiveJob : null}
+        onClearResume={(folder) => clearResumeFile("move", folder)}
         disabled={!tauriMode}
       />
       <ResultPanel records={$resultStore} title="폴더 분류 결과" />
+    {:else if active === "help"}
+      <HelpView />
     {:else if active === "log"}
       <LogPanel logs={$logStore} />
     {/if}

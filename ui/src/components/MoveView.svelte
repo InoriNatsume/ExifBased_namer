@@ -15,7 +15,10 @@
     template: string;
     dryRun: boolean;
     includeNegative: boolean;
+    resumeMode: boolean;
   }) => void;
+  export let onClearResume: ((folder: string) => void) | null = null;
+  export let onCancel: (() => void) | null = null;
   export let disabled = false;
 
   let folder = "";
@@ -24,6 +27,7 @@
   let template = "[value]";
   let dryRun = true;
   let includeNegative = false;
+  let resumeMode = false;
   let localStatus = "";
 
   $: displayStatus = localStatus || status;
@@ -69,7 +73,17 @@
       template: template.trim() || "[value]",
       dryRun,
       includeNegative,
+      resumeMode,
     });
+  }
+
+  function clearResume() {
+    if (!folder.trim()) {
+      localStatus = "작업 폴더를 입력하세요.";
+      return;
+    }
+    localStatus = "";
+    onClearResume?.(folder);
   }
 </script>
 
@@ -97,7 +111,7 @@
         <option value={name}>{name}</option>
       {/each}
     </select>
-    <div class="muted">분류 기준 변수(변수 1개 단위).</div>
+    <div class="muted">분류 기준 변수(1개만 사용).</div>
   </div>
   <div class="input-row">
     <input bind:value={template} placeholder="폴더 이름 형식 (예: [value])" />
@@ -110,15 +124,21 @@
     <label>
       <input type="checkbox" bind:checked={includeNegative} /> 네거티브 태그 포함
     </label>
+    <label>
+      <input type="checkbox" bind:checked={resumeMode} /> 재개 모드
+    </label>
   </div>
-  <p class="muted">
-    매칭 결과가 UNKNOWN/CONFLICT인 항목은 원래 폴더에 그대로 남습니다.
-  </p>
+  <div class="row compact">
+    <button class="ghost" on:click={clearResume} disabled={disabled || !folder.trim()}>
+      재개 파일 삭제
+    </button>
+  </div>
   <ProgressBar
     label="폴더 분류 진행"
     status={displayStatus}
     detail={progressText}
     {processed}
     {total}
+    onCancel={onCancel}
   />
 </section>
