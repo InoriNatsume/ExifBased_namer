@@ -1,5 +1,6 @@
 ﻿<script lang="ts">
   import { onMount } from "svelte";
+  import { get } from "svelte/store";
   import { connectSidecar, isTauri, runSidecarJob } from "./lib/ipc";
   import type { IpcMessage, IpcRunRequest } from "./lib/types";
   import {
@@ -11,6 +12,7 @@
     type ResultStatus,
   } from "./lib/models";
   import { normalizeTags, type Preset, type PresetValue } from "./lib/preset";
+  import { jobStore, logStore, resultStore, templateStore } from "./lib/stores";
   import EditorView from "./components/EditorView.svelte";
   import SearchView from "./components/SearchView.svelte";
   import RenameView from "./components/RenameView.svelte";
@@ -28,27 +30,7 @@
 
   let active = "search";
   let tauriMode = false;
-  let status = "대기";
-  let progressText = "";
-  let progress: JobProgress = {
-    processed: 0,
-    total: 0,
-    errors: 0,
-    skipped: 0,
-    startedAt: 0,
-  };
-  let stats: JobStats = {
-    ok: 0,
-    unknown: 0,
-    conflict: 0,
-    error: 0,
-    skipped: 0,
-  };
-  let logs: string[] = [];
-  let results: ResultRecord[] = [];
   let activeJobId: string | null = null;
-  let activeJob: JobMode | null = null;
-  let preset: Preset = { name: "", variables: [] };
   let presetPath: string | null = null;
   let presetStatus = "";
   let presetJobId: string | null = null;
@@ -61,7 +43,7 @@
   let buildTarget: { name: string; mode: "replace" | "append" } | null = null;
 
   function appendLog(line: string) {
-    logs = [line, ...logs].slice(0, 100);
+    logStore.update((items) => [line, ...items].slice(0, 100));
   }
 
   function setPresetPath(path: string | null) {
@@ -83,37 +65,60 @@
   }
 
   function resetJob(mode: JobMode) {
-    activeJob = mode;
     activeJobId = createJobId(mode);
-    progress = {
+    const progress: JobProgress = {
       processed: 0,
       total: 0,
       errors: 0,
       skipped: 0,
       startedAt: Date.now(),
     };
-    stats = { ok: 0, unknown: 0, conflict: 0, error: 0, skipped: 0 };
-    results = [];
+    const stats: JobStats = {
+      ok: 0,
+      unknown: 0,
+      conflict: 0,
+      error: 0,
+      skipped: 0,
+    };
+    jobStore.set({
+      activeJob: mode,
+      status: "대기",
+      progressText: "",
+      progress,
+      stats,
+    });
+    resultStore.set([]);
     updateProgressText();
   }
 
+  function setJobStatus(text: string) {
+    jobStore.update((state) => ({ ...state, status: text }));
+  }
+
   function updateProgressText() {
-    if (!activeJob) {
-      progressText = "";
+    const state = get(jobStore);
+    if (!state.activeJob) {
+      jobStore.update((current) => ({ ...current, progressText: "" }));
       return;
     }
-    const eta = formatEta(progress);
-    if (activeJob === "scan") {
-      progressText = `스캔: ${progress.processed}/${progress.total} 오류 ${stats.error} 스킵 ${stats.skipped} ETA ${eta}`;
+    const eta = formatEta(state.progress);
+    if (state.activeJob === "scan") {
+      jobStore.update((current) => ({
+        ...current,
+        progressText: `스캔: ${state.progress.processed}/${state.progress.total} 오류 ${state.stats.error} 스킵 ${state.stats.skipped} ETA ${eta}`,
+      }));
       return;
     }
-    if (activeJob === "build_nais") {
-      const text = `프리셋 만들기: ${progress.processed}/${progress.total} 오류 ${stats.error} ETA ${eta}`;
-      progressText = text;
+    if (state.activeJob === "build_nais") {
+      const text = `프리셋 만들기: ${state.progress.processed}/${state.progress.total} 오류 ${state.stats.error} ETA ${eta}`;
+      jobStore.update((current) => ({ ...current, progressText: text }));
       buildStatus = text;
       return;
     }
-    progressText = `진행: ${progress.processed}/${progress.total} OK ${stats.ok} UNKNOWN ${stats.unknown} CONFLICT ${stats.conflict} ERROR ${stats.error} ETA ${eta}`;
+    jobStore.update((current) => ({
+      ...current,
+      progressText: `진행: ${state.progress.processed}/${state.progress.total} OK ${state.stats.ok} UNKNOWN ${state.stats.unknown} CONFLICT ${state.stats.conflict} ERROR ${state.stats.error} ETA ${eta}`,
+    }));
   }
 
   function addResult(status: ResultStatus, source?: string, target?: string, message?: string) {
@@ -125,15 +130,17 @@
     } else if (source) {
       text = `${status} | ${source}`;
     }
-    const record: ResultRecord = {
-      id: `${activeJobId ?? "job"}-${results.length}`,
-      status,
-      text,
-      source,
-      target,
-      preview: target || source,
-    };
-    results = [record, ...results].slice(0, 2000);
+    resultStore.update((items) => {
+      const record: ResultRecord = {
+        id: `${activeJobId ?? "job"}-${items.length}`,
+        status,
+        text,
+        source,
+        target,
+        preview: target || source,
+      };
+      return [record, ...items].slice(0, 2000);
+    });
   }
 
   function onMessage(message: IpcMessage) {
@@ -149,7 +156,7 @@
             ? (message.payload as Record<string, unknown>)
             : null;
         if (presetJobMode === "load" && payload?.preset) {
-          preset = payload.preset as Preset;
+          templateStore.set(payload.preset as Preset);
           const path = typeof payload.path === "string" ? payload.path : presetPath;
           if (path) {
             setPresetPath(path);
@@ -189,36 +196,53 @@
     }
 
     if (message.type === "progress") {
-      progress.processed = Math.max(progress.processed, message.processed ?? 0);
-      progress.total = message.total ?? progress.total;
-      progress.errors = message.errors ?? progress.errors;
-      progress.skipped = message.skipped ?? progress.skipped;
-      if (activeJob === "scan") {
-        stats.error = progress.errors;
-        stats.skipped = progress.skipped;
-      } else {
-        stats.error = progress.errors;
-      }
+      jobStore.update((state) => {
+        const progress = {
+          ...state.progress,
+          processed: Math.max(state.progress.processed, message.processed ?? 0),
+          total: message.total ?? state.progress.total,
+          errors: message.errors ?? state.progress.errors,
+          skipped: message.skipped ?? state.progress.skipped,
+        };
+        const stats = { ...state.stats };
+        if (state.activeJob === "scan") {
+          stats.error = progress.errors;
+          stats.skipped = progress.skipped;
+        } else {
+          stats.error = progress.errors;
+        }
+        return { ...state, progress, stats };
+      });
       updateProgressText();
       return;
     }
 
     if (message.type === "result") {
-      const status = (message.status ?? "OK") as ResultStatus;
-      addResult(status, message.source, message.target, message.message);
-      if (status === "OK") stats.ok += 1;
-      if (status === "UNKNOWN") stats.unknown += 1;
-      if (status === "CONFLICT") stats.conflict += 1;
-      if (status === "ERROR") stats.error += 1;
+      const resultStatus = (message.status ?? "OK") as ResultStatus;
+      addResult(resultStatus, message.source, message.target, message.message);
+      jobStore.update((state) => {
+        const stats = { ...state.stats };
+        if (resultStatus === "OK") stats.ok += 1;
+        if (resultStatus === "UNKNOWN") stats.unknown += 1;
+        if (resultStatus === "CONFLICT") stats.conflict += 1;
+        if (resultStatus === "ERROR") stats.error += 1;
+        return { ...state, stats };
+      });
       updateProgressText();
       return;
     }
 
     if (message.type === "done") {
-      if (activeJob === "build_nais") {
-        status = "완료";
+      if (get(jobStore).activeJob === "build_nais") {
+        setJobStatus("완료");
         buildStatus = "완료";
-        progress.processed = Math.max(progress.processed, message.processed ?? 0);
+        jobStore.update((state) => ({
+          ...state,
+          progress: {
+            ...state.progress,
+            processed: Math.max(state.progress.processed, message.processed ?? 0),
+          },
+        }));
         updateProgressText();
 
         const payload =
@@ -246,31 +270,41 @@
         return;
       }
 
-      status = "완료";
-      progress.processed = Math.max(progress.processed, message.processed ?? 0);
-      stats.error = message.errors ?? stats.error;
-      stats.skipped = message.skipped ?? stats.skipped;
+      setJobStatus("완료");
+      jobStore.update((state) => ({
+        ...state,
+        progress: {
+          ...state.progress,
+          processed: Math.max(state.progress.processed, message.processed ?? 0),
+        },
+        stats: {
+          ...state.stats,
+          error: message.errors ?? state.stats.error,
+          skipped: message.skipped ?? state.stats.skipped,
+        },
+      }));
       updateProgressText();
       return;
     }
 
     if (message.type === "error") {
-      status = `오류: ${message.message ?? "알 수 없음"}`;
-      appendLog(status);
-      if (activeJob === "build_nais") {
-        buildStatus = status;
+      const text = `오류: ${message.message ?? "알 수 없음"}`;
+      setJobStatus(text);
+      appendLog(text);
+      if (get(jobStore).activeJob === "build_nais") {
+        buildStatus = text;
       }
     }
   }
 
   async function runJob(mode: JobMode, payload: Record<string, unknown>) {
     if (!tauriMode) {
-      status = "브라우저 모드에서는 IPC를 실행할 수 없습니다.";
-      appendLog(status);
+      setJobStatus("브라우저 모드에서는 IPC를 실행할 수 없습니다.");
+      appendLog("브라우저 모드에서는 IPC를 실행할 수 없습니다.");
       return;
     }
     resetJob(mode);
-    status = "요청 전송 중...";
+    setJobStatus("요청 전송 중...");
     const request: IpcRunRequest = {
       id: activeJobId!,
       type: "run",
@@ -279,12 +313,13 @@
     };
     try {
       await runSidecarJob(request);
-      status = "작업 시작";
+      setJobStatus("작업 시작");
     } catch (error) {
-      status = `오류: ${String(error)}`;
-      appendLog(status);
+      const text = `오류: ${String(error)}`;
+      setJobStatus(text);
+      appendLog(text);
       if (mode === "build_nais") {
-        buildStatus = status;
+        buildStatus = text;
       }
     }
   }
@@ -320,9 +355,10 @@
     dryRun: boolean;
     includeNegative: boolean;
   }) {
-    if (preset.variables.length === 0) {
-      status = "템플릿에 변수가 없습니다.";
-      appendLog(status);
+    const template = get(templateStore);
+    if (template.variables.length === 0) {
+      setJobStatus("템플릿에 변수가 없습니다.");
+      appendLog("템플릿에 변수가 없습니다.");
       return;
     }
     runJob("rename", {
@@ -333,7 +369,7 @@
       dry_run: payload.dryRun,
       include_negative: payload.includeNegative,
       progress_step: 200,
-      variables: preset.variables,
+      variables: template.variables,
     });
   }
 
@@ -345,9 +381,10 @@
     dryRun: boolean;
     includeNegative: boolean;
   }) {
-    if (preset.variables.length === 0) {
-      status = "템플릿에 변수가 없습니다.";
-      appendLog(status);
+    const template = get(templateStore);
+    if (template.variables.length === 0) {
+      setJobStatus("템플릿에 변수가 없습니다.");
+      appendLog("템플릿에 변수가 없습니다.");
       return;
     }
     runJob("move", {
@@ -358,7 +395,7 @@
       dry_run: payload.dryRun,
       include_negative: payload.includeNegative,
       progress_step: 200,
-      variables: preset.variables,
+      variables: template.variables,
     });
   }
 
@@ -393,7 +430,7 @@
   }
 
   function updatePreset(next: Preset) {
-    preset = { ...next };
+    templateStore.set({ ...next });
   }
 
   async function runPresetLoad(path: string) {
@@ -434,7 +471,7 @@
         id: presetJobId,
         type: "run",
         op: "preset_save",
-        payload: { path, preset },
+        payload: { path, preset: get(templateStore) },
       });
     } catch (error) {
       presetStatus = `오류: ${String(error)}`;
@@ -512,17 +549,18 @@
     incoming: PresetValue[],
     mode: "replace" | "append"
   ) {
-    const variables = [...preset.variables];
+    const template = get(templateStore);
+    const variables = [...template.variables];
     const index = variables.findIndex((variable) => variable.name === variableName);
     if (index === -1) {
       variables.push({ name: variableName, values: incoming });
-      preset = { ...preset, variables };
+      templateStore.set({ ...template, variables });
       return;
     }
 
     if (mode === "replace") {
       variables[index] = { ...variables[index], values: incoming };
-      preset = { ...preset, variables };
+      templateStore.set({ ...template, variables });
       return;
     }
 
@@ -535,12 +573,12 @@
       })),
     ];
     variables[index] = { ...variables[index], values: merged };
-    preset = { ...preset, variables };
+    templateStore.set({ ...template, variables });
   }
 
   onMount(async () => {
     tauriMode = isTauri();
-    status = tauriMode ? "대기" : "브라우저 모드";
+    setJobStatus(tauriMode ? "대기" : "브라우저 모드");
     try {
       await connectSidecar(onMessage);
       appendLog("IPC 연결 준비 완료");
@@ -554,7 +592,7 @@
         }
       }
     } catch (error) {
-      status = "IPC 연결 실패";
+      setJobStatus("IPC 연결 실패");
       appendLog(String(error));
     }
   });
@@ -578,7 +616,7 @@
   <main class="main">
     {#if active === "editor"}
       <EditorView
-        {preset}
+        preset={$templateStore}
         presetPath={presetPath}
         presetStatus={presetStatus}
         onChange={updatePreset}
@@ -596,39 +634,39 @@
       />
     {:else if active === "search"}
       <SearchView
-        status={status}
-        {progressText}
-        processed={progress.processed}
-        total={progress.total}
+        status={$jobStore.status}
+        progressText={$jobStore.progressText}
+        processed={$jobStore.progress.processed}
+        total={$jobStore.progress.total}
         onSearch={runSearch}
         onScan={runScan}
         disabled={!tauriMode}
       />
-      <ResultPanel records={results} title="검색 결과" />
+      <ResultPanel records={$resultStore} title="검색 결과" />
     {:else if active === "rename"}
       <RenameView
-        variables={preset.variables}
-        status={status}
-        {progressText}
-        processed={progress.processed}
-        total={progress.total}
+        variables={$templateStore.variables}
+        status={$jobStore.status}
+        progressText={$jobStore.progressText}
+        processed={$jobStore.progress.processed}
+        total={$jobStore.progress.total}
         onRun={runRename}
         disabled={!tauriMode}
       />
-      <ResultPanel records={results} title="파일명 변경 결과" />
+      <ResultPanel records={$resultStore} title="파일명 변경 결과" />
     {:else if active === "move"}
       <MoveView
-        variables={preset.variables}
-        status={status}
-        {progressText}
-        processed={progress.processed}
-        total={progress.total}
+        variables={$templateStore.variables}
+        status={$jobStore.status}
+        progressText={$jobStore.progressText}
+        processed={$jobStore.progress.processed}
+        total={$jobStore.progress.total}
         onRun={runMove}
         disabled={!tauriMode}
       />
-      <ResultPanel records={results} title="폴더 분류 결과" />
+      <ResultPanel records={$resultStore} title="폴더 분류 결과" />
     {:else if active === "log"}
-      <LogPanel {logs} />
+      <LogPanel logs={$logStore} />
     {/if}
   </main>
 </div>

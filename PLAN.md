@@ -101,10 +101,11 @@
 
 ## 3-2. Svelte 상태 관리/스토어 설계(초안)
 - 전역 스토어
-  - `templateStore`: 현재 템플릿/변수/값 상태
-  - `jobStore`: 작업 상태(진행도/ETA/중단)
+  - `templateStore`: 현재 템플릿/변수/값 상태 [x]
+  - `jobStore`: 작업 상태(진행도/ETA/중단) [x]
   - `resultStore`: 결과 목록/필터/미리보기
   - `logStore`: 로그/문제 로그 경로
+  - `logStore`/`resultStore` 기본 적용 [x]
 - IPC 메시지 흐름
   - 요청 전송 → `jobStore` 초기화
   - `progress` → 진행도/ETA 업데이트
