@@ -1,8 +1,11 @@
 ﻿<script lang="ts">
   import { pickFolder } from "../lib/dialog";
+  import ProgressBar from "./ProgressBar.svelte";
 
   export let status = "대기";
   export let progressText = "";
+  export let processed = 0;
+  export let total = 0;
   export let onSearch: (payload: {
     folder: string;
     tags: string;
@@ -81,8 +84,11 @@
     DB 스캔은 폴더 전체의 태그를 DB에 저장해 검색과 분류 속도를 높입니다. 증분
     스캔은 이미 처리한 파일을 건너뜁니다.
   </p>
-  <p>상태: {displayStatus}</p>
-  {#if progressText}
-    <p>{progressText}</p>
-  {/if}
+  <ProgressBar
+    label="진행"
+    status={displayStatus}
+    detail={progressText}
+    {processed}
+    {total}
+  />
 </section>

@@ -598,6 +598,8 @@
       <SearchView
         status={status}
         {progressText}
+        processed={progress.processed}
+        total={progress.total}
         onSearch={runSearch}
         onScan={runScan}
         disabled={!tauriMode}
@@ -608,6 +610,8 @@
         variables={preset.variables}
         status={status}
         {progressText}
+        processed={progress.processed}
+        total={progress.total}
         onRun={runRename}
         disabled={!tauriMode}
       />
@@ -617,6 +621,8 @@
         variables={preset.variables}
         status={status}
         {progressText}
+        processed={progress.processed}
+        total={progress.total}
         onRun={runMove}
         disabled={!tauriMode}
       />

@@ -1,10 +1,13 @@
 <script lang="ts">
   import { pickFolder } from "../lib/dialog";
+  import ProgressBar from "./ProgressBar.svelte";
   import type { PresetVariable } from "../lib/preset";
 
   export let variables: PresetVariable[] = [];
   export let status = "대기";
   export let progressText = "";
+  export let processed = 0;
+  export let total = 0;
   export let onRun: (payload: {
     folder: string;
     order: string[];
@@ -174,8 +177,11 @@
     접두사 모드는 기존 파일명 앞에 형식을 붙이고, 드라이런은 실제 변경 없이 결과만
     확인합니다. 충돌 시 @@@숫자가 자동 부여됩니다.
   </p>
-  <p>상태: {displayStatus}</p>
-  {#if progressText}
-    <p>{progressText}</p>
-  {/if}
+  <ProgressBar
+    label="파일명 변경 진행"
+    status={displayStatus}
+    detail={progressText}
+    {processed}
+    {total}
+  />
 </section>
