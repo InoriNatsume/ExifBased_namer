@@ -13,6 +13,8 @@
   import { normalizeTags, type Preset, type PresetValue } from "./lib/preset";
   import EditorView from "./components/EditorView.svelte";
   import SearchView from "./components/SearchView.svelte";
+  import RenameView from "./components/RenameView.svelte";
+  import MoveView from "./components/MoveView.svelte";
   import ResultPanel from "./components/ResultPanel.svelte";
   import LogPanel from "./components/LogPanel.svelte";
 
@@ -310,6 +312,56 @@
     });
   }
 
+  function runRename(payload: {
+    folder: string;
+    order: string[];
+    template: string;
+    prefixMode: boolean;
+    dryRun: boolean;
+    includeNegative: boolean;
+  }) {
+    if (preset.variables.length === 0) {
+      status = "템플릿에 변수가 없습니다.";
+      appendLog(status);
+      return;
+    }
+    runJob("rename", {
+      folder: payload.folder,
+      order: payload.order,
+      template: payload.template,
+      prefix_mode: payload.prefixMode,
+      dry_run: payload.dryRun,
+      include_negative: payload.includeNegative,
+      progress_step: 200,
+      variables: preset.variables,
+    });
+  }
+
+  function runMove(payload: {
+    folder: string;
+    targetRoot: string;
+    variableName: string;
+    template: string;
+    dryRun: boolean;
+    includeNegative: boolean;
+  }) {
+    if (preset.variables.length === 0) {
+      status = "템플릿에 변수가 없습니다.";
+      appendLog(status);
+      return;
+    }
+    runJob("move", {
+      folder: payload.folder,
+      target_root: payload.targetRoot,
+      variable_name: payload.variableName,
+      template: payload.template,
+      dry_run: payload.dryRun,
+      include_negative: payload.includeNegative,
+      progress_step: 200,
+      variables: preset.variables,
+    });
+  }
+
   function runBuild(payload: {
     folder: string;
     includeNegative: boolean;
@@ -551,17 +603,26 @@
         disabled={!tauriMode}
       />
       <ResultPanel records={results} title="검색 결과" />
+    {:else if active === "rename"}
+      <RenameView
+        variables={preset.variables}
+        status={status}
+        {progressText}
+        onRun={runRename}
+        disabled={!tauriMode}
+      />
+      <ResultPanel records={results} title="파일명 변경 결과" />
+    {:else if active === "move"}
+      <MoveView
+        variables={preset.variables}
+        status={status}
+        {progressText}
+        onRun={runMove}
+        disabled={!tauriMode}
+      />
+      <ResultPanel records={results} title="폴더 분류 결과" />
     {:else if active === "log"}
       <LogPanel {logs} />
-    {:else}
-      <section class="panel">
-        <div class="section-title">
-          <h2>{active === "rename" ? "파일명 변경" : "폴더 분류"}</h2>
-          <span class="badge">준비 중</span>
-        </div>
-        <p>이 탭은 다음 단계에서 연결합니다.</p>
-      </section>
-      <ResultPanel records={results} />
     {/if}
   </main>
 </div>

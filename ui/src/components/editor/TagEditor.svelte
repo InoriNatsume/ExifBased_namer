@@ -19,10 +19,22 @@
   let bulkRemoveText = "";
   let subsetLines: string[] = [];
   let duplicateLines: string[] = [];
+  let isEditing = false;
+  let lastSelectedName = "";
 
   $: if (!selectedValue) {
     localTags = "";
-  } else if (valueTags !== localTags) {
+    isEditing = false;
+    lastSelectedName = "";
+  }
+
+  $: if (selectedValue && selectedValue.name !== lastSelectedName) {
+    lastSelectedName = selectedValue.name;
+    isEditing = false;
+    localTags = valueTags;
+  }
+
+  $: if (selectedValue && !isEditing && valueTags !== localTags) {
     localTags = valueTags;
   }
 
@@ -33,6 +45,11 @@
 
   function copyText(value: string) {
     navigator.clipboard.writeText(value).catch(() => undefined);
+  }
+
+  function applyTags() {
+    onApplyTags(localTags);
+    isEditing = false;
   }
 </script>
 
@@ -51,10 +68,11 @@
           bind:value={localTags}
           rows="8"
           placeholder="쉼표 또는 줄바꿈으로 구분"
+          on:focus={() => (isEditing = true)}
         ></textarea>
       </label>
       <div class="row">
-        <button class="ghost" on:click={() => onApplyTags(localTags)}>태그 적용</button>
+        <button class="ghost" on:click={applyTags}>태그 적용</button>
       </div>
     {:else}
       <div class="muted">값을 선택하세요.</div>

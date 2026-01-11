@@ -324,6 +324,10 @@ select {
   background: #fff;
 }
 
+.list-row .spacer {
+  flex: 1;
+}
+
 .list-row input {
   flex: 1;
   border: 1px solid transparent;

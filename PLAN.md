@@ -5,14 +5,14 @@
 - 코어 로직은 Python에 유지하고 UI와 분리 유지.
 
 ## 1. IPC 설계 (JSON Lines)
-- 메시지 스키마 정의
+- 메시지 스키마 정의 [x]
   - 요청: {id, type:"run", op, payload}
   - 응답: ack/progress/result/log/done/error
-- 작업 유형 정의
+- 작업 유형 정의 [x]
   - search/rename/move/build_nais/preset_load
-- 진행도/ETA 표준화
-- 취소(cancellation) 메시지 정의
-- 버전 필드 추가(향후 호환성)
+- 진행도/ETA 표준화 [x]
+- 취소(cancellation) 메시지 정의 [x]
+- 버전 필드 추가(향후 호환성) [ ]
 - 예시 JSON 문서화 [x] (`IPC_SPEC.md`)
 
 ## 1-1. DB 설계(초안, SQLite)
@@ -73,12 +73,12 @@
 ## 3. Tauri UI 프로토타입
 - 프레임워크: Svelte
 - Svelte/Tauri 골격 + IPC 연결 준비 [x] (`ui/`)
-- 파일/폴더 선택 다이얼로그
-- 작업 탭 구조(편집/검색/파일명 변경/폴더 분류)
-- 결과 목록 + 미리보기 + 필터
-- 진행도 표시/로그 뷰어
-- IPC 연결 (spawn sidecar + 메시지 처리)
-- 사용자 친화 UX
+- 파일/폴더 선택 다이얼로그 [x]
+- 작업 탭 구조(편집/검색/파일명 변경/폴더 분류) [x]
+- 결과 목록 + 미리보기 + 필터 [x]
+- 진행도 표시/로그 뷰어 [x]
+- IPC 연결 (spawn sidecar + 메시지 처리) [x]
+- 사용자 친화 UX [ ]
   - 작업 흐름 가이드(툴팁/도움말)
   - 오류/충돌 상황 안내 강화
   - 대량 처리 중단/재시작 UX
@@ -88,16 +88,16 @@
   - 좌측 네비게이션(편집/검색/파일명 변경/폴더 분류)
   - 우측 메인 작업 영역 + 하단 결과 패널
 - 공통 컴포넌트
-  - `ResultList`(필터/미리보기/스크롤)
-  - `ProgressBar`(진행/ETA)
-  - `LogPanel`(문제 로그/시스템 로그)
-  - `TemplateManager`(템플릿 불러오기/저장/상태 표시)
-  - `PresetImporter`(SDSTUDIO/NAIS/폴더 프리셋 → 변수 1개에 적용)
+  - `ResultPanel`(필터/미리보기/스크롤) [x]
+  - `ProgressBar`(진행/ETA) [ ]
+  - `LogPanel`(문제 로그/시스템 로그) [x]
+  - `TemplateManager`(템플릿 불러오기/저장/상태 표시) [x]
+  - `PresetImporter`(SDSTUDIO/NAIS/폴더 프리셋 → 변수 1개에 적용) [x]
 - 작업별 컴포넌트
-  - `EditorView`(변수/값/태그 편집, 공통 태그 제외, 일괄 변경)
-  - `SearchView`(태그 AND 검색)
-  - `RenameView`(템플릿/변수순서/드라이런)
-  - `MoveView`(단일 변수/대상 폴더 템플릿)
+  - `EditorView`(변수/값/태그 편집, 공통 태그 제외, 일괄 변경) [x]
+  - `SearchView`(태그 AND 검색) [x]
+  - `RenameView`(템플릿/변수순서/드라이런) [x]
+  - `MoveView`(단일 변수/대상 폴더 템플릿) [x]
 
 ## 3-2. Svelte 상태 관리/스토어 설계(초안)
 - 전역 스토어
