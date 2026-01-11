@@ -2,7 +2,7 @@
 
 ## 목표
 - NAI EXIF/stealth 태그를 기반으로 이미지 분류/이름 변경/폴더 이동을 수행한다.
-- 사용자가 정의한 프리셋(변수/값/태그조합)을 편집하고, NAIS 포맷을 임포트/익스포트한다.
+- 사용자가 정의한 템플릿(변수/값/태그조합)을 편집하고, 프리셋(변수 1개 단위)을 임포트/익스포트한다.
 - 코어 로직과 UI를 분리해, Tkinter 프로토타입과 향후 Tauri UI 모두에서 재사용 가능하게 한다.
 
 ## 설계 원칙
@@ -19,7 +19,8 @@
 - 검색/분류/이름변경은 대량 파일(10만+)을 고려한다.
 
 ## 용어 정의
-- 프리셋: 변수/값/태그조합의 전체 묶음(JSON으로 저장 가능).
+- 템플릿: 변수/값/태그조합의 전체 묶음(JSON으로 저장 가능).
+- 프리셋: 변수 1개 + 값/태그조합 묶음(NAIS/SDStudio/폴더 분석 결과).
 - 변수: 분류 기준의 이름(예: character, emotion). 키/이름 분리 없이 이름만 사용.
 - 값: 변수 내 항목(예: angry_1, sad_1).
 - 태그 조합: 값이 요구하는 필수 태그 묶음(AND 기준).
@@ -28,7 +29,7 @@
 - OK/UNKNOWN/CONFLICT: 매칭 결과 상태(일치 1개/0개/2개 이상).
 
 ## 코어 데이터 모델 (Pydantic v2)
-- Preset
+- Template
   - name: str | None
   - variables: list[Variable]
 - Variable
@@ -64,7 +65,7 @@
 - 1회 스캔 후 결과 저장 → 이후 검색/필터는 DB에서 즉시 처리
 - 증분 스캔: mtime/size/hash 기준 변경 파일만 재처리
 - 결과 상태(OK/UNKNOWN/CONFLICT/ERROR) 및 매칭 정보 저장
-- 공통 태그 제거/일괄 변경은 프리셋 레이어에서 처리
+- 공통 태그 제거/일괄 변경은 템플릿 레이어에서 처리
 - rename/move는 DB 태그 우선 사용, 미존재 시 태그 재추출
 
 ### DB 스키마(초안)
@@ -172,7 +173,7 @@ Svelte
 - NAIS 익스포트 기본 검증: `tests/test_import_export.py`
 
 ## 프로젝트 구조(요약)
-- `core/`: 태그 추출/정규화/매칭/프리셋/집합 연산 등 순수 로직
+- `core/`: 태그 추출/정규화/매칭/템플릿/집합 연산 등 순수 로직
 - `gui/`: Tkinter 프로토타입 UI (추후 제거 예정, 레거시로 유지)
 - `nais_builder/`: 폴더 기반 NAIS 생성 모듈 (독립 사용 가능)
 - `tests/`: unittest 기반 자동 테스트
@@ -187,7 +188,7 @@ Svelte
 - `core/extract/`: EXIF/stealth payload 추출
 - `core/normalize/`: 태그 정규화/프롬프트 결합
 - `core/match/`: 매칭/분류 로직
-- `core/preset/`: 프리셋 스키마/입출력
+- `core/preset/`: 템플릿 스키마/입출력
 - `core/adapters/`: 외부 포맷 임포트/익스포트(NAIS/Legacy)
 - `core/utils/`: 공통 유틸(파일명/집합 연산/진행도)
 - `core/runner/`: 병렬 처리용 워커

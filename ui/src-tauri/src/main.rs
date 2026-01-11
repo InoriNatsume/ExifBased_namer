@@ -24,7 +24,8 @@ fn spawn_and_stream(app: &AppHandle, message: &str) -> Result<(), String> {
         return Err(format!("sidecar not found: {}", sidecar_path.display()));
     }
 
-    let mut child = Command::new("python")
+    let python = resolve_python(&root);
+    let mut child = Command::new(&python)
         .arg(&sidecar_path)
         .current_dir(&root)
         .env("PYTHONIOENCODING", "utf-8")
@@ -67,6 +68,17 @@ fn spawn_and_stream(app: &AppHandle, message: &str) -> Result<(), String> {
     Ok(())
 }
 
+fn resolve_python(root: &PathBuf) -> PathBuf {
+    if let Ok(custom) = std::env::var("NAI_PYTHON") {
+        return PathBuf::from(custom);
+    }
+    let venv_python = root.join("venv").join("Scripts").join("python.exe");
+    if venv_python.exists() {
+        return venv_python;
+    }
+    PathBuf::from("python")
+}
+
 fn resolve_root() -> Result<PathBuf, String> {
     if let Ok(root) = std::env::var("NAI_ROOT") {
         return Ok(PathBuf::from(root));
@@ -85,6 +97,7 @@ fn resolve_root() -> Result<PathBuf, String> {
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![run_sidecar_job])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

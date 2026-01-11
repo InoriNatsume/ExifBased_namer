@@ -3,5 +3,10 @@
   "description": "Main window IPC permissions.",
   "local": true,
   "windows": ["main"],
-  "permissions": ["core:default", "core:event:default", "allow-run-sidecar-job"]
+  "permissions": [
+    "core:default",
+    "core:event:default",
+    "allow-run-sidecar-job",
+    "dialog:default"
+  ]
 }

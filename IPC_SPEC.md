@@ -166,3 +166,66 @@ payload
 
 ## Windows CMD 참고
 - 경로에 `\`가 있는 경우 `\\`로 이스케이프 필요.
+
+### build_nais
+Description: build preset data from a folder (variable 1개) and return values for preset import.
+payload
+```json
+{
+  "folder": "C:\\images",
+  "include_negative": false,
+  "progress_step": 200
+}
+```
+done payload
+```json
+{
+  "variable_name": "folder_name",
+  "values": [{"name": "value1", "tags": ["tag1", "tag2"]}],
+  "common_tags": ["tagA", "tagB"]
+}
+```
+
+### preset_load
+Description: load template json (전체 템플릿) into app.
+payload
+```json
+{
+  "path": "C:\\path\\template.json"
+}
+```
+
+done payload
+```json
+{
+  "preset": {"name": "", "variables": []},
+  "path": "C:\\path\\template.json"
+}
+```
+
+### preset_save
+Description: save template json (전체 템플릿) to disk.
+payload
+```json
+{
+  "path": "C:\\path\\template.json",
+  "preset": {"name": "", "variables": []}
+}
+```
+
+### preset_import
+Description: import SDSTUDIO/NAIS preset values (변수 1개 단위).
+payload
+```json
+{
+  "path": "C:\\path\\template.json"
+}
+```
+
+done payload
+```json
+{
+  "variable_name": "optional",
+  "values": [{"name": "value1", "tags": ["tag1"]}]
+}
+```

@@ -31,6 +31,8 @@ export type IpcMessage =
       skipped?: number;
       matches?: number;
       cancelled?: boolean;
+      payload?: unknown;
+      stats?: Record<string, unknown>;
     }
   | { id?: string; type: "log"; message?: string }
   | { id?: string; type: "error"; message?: string };

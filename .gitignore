@@ -22,6 +22,7 @@ issues_*.txt
 *.db
 cache/
 data/
+node_modules/
 
 # UI build artifacts
 ui/node_modules/
@@ -29,3 +30,5 @@ ui/src-tauri/target/
 ui/dist/
 ui/.svelte-kit/
 ui/src-tauri/gen/
+ui/.vite/
+ui/src-tauri/.tauri/

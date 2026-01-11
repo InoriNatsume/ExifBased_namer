@@ -91,7 +91,8 @@
   - `ResultList`(필터/미리보기/스크롤)
   - `ProgressBar`(진행/ETA)
   - `LogPanel`(문제 로그/시스템 로그)
-  - `PresetManager`(프리셋 불러오기/저장/상태 표시)
+  - `TemplateManager`(템플릿 불러오기/저장/상태 표시)
+  - `PresetImporter`(SDSTUDIO/NAIS/폴더 프리셋 → 변수 1개에 적용)
 - 작업별 컴포넌트
   - `EditorView`(변수/값/태그 편집, 공통 태그 제외, 일괄 변경)
   - `SearchView`(태그 AND 검색)
@@ -100,7 +101,7 @@
 
 ## 3-2. Svelte 상태 관리/스토어 설계(초안)
 - 전역 스토어
-  - `presetStore`: 현재 프리셋/변수/값 상태
+  - `templateStore`: 현재 템플릿/변수/값 상태
   - `jobStore`: 작업 상태(진행도/ETA/중단)
   - `resultStore`: 결과 목록/필터/미리보기
   - `logStore`: 로그/문제 로그 경로

@@ -13,12 +13,16 @@ from core.db.storage import connect
 from sidecar.emitter import JsonEmitter
 from sidecar.job_manager import Job, JobManager
 from sidecar.jobs import (
+    handle_build_nais,
     handle_db_stats,
     handle_move,
     handle_rename,
     handle_scan,
     handle_search,
     handle_strip_suffix,
+    handle_preset_import,
+    handle_preset_load,
+    handle_preset_save,
 )
 
 
@@ -40,6 +44,10 @@ def main() -> None:
         "rename": handle_rename,
         "move": handle_move,
         "strip_suffix": handle_strip_suffix,
+        "build_nais": handle_build_nais,
+        "preset_load": handle_preset_load,
+        "preset_save": handle_preset_save,
+        "preset_import": handle_preset_import,
     }
 
     def _make_conn():
