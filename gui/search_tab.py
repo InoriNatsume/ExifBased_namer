@@ -38,8 +38,9 @@ class SearchTab:
     def _build(self, parent: ttk.Frame) -> None:
         ctrl = ttk.Labelframe(parent, text="검색")
         ctrl.pack(fill=tk.X, padx=10, pady=8)
+        ctrl.columnconfigure(1, weight=1)
 
-        ttk.Label(ctrl, text="폴더").grid(row=0, column=0, sticky="w", padx=6, pady=6)
+        ttk.Label(ctrl, text="작업 폴더").grid(row=0, column=0, sticky="w", padx=6, pady=6)
         ttk.Entry(ctrl, textvariable=self.folder_var, width=60).grid(
             row=0, column=1, sticky="we", padx=6, pady=6
         )
@@ -47,40 +48,39 @@ class SearchTab:
             row=0, column=2, padx=6, pady=6
         )
 
-        ttk.Label(ctrl, text="필수 태그").grid(
-            row=1, column=0, sticky="w", padx=6, pady=6
-        )
+        ttk.Label(ctrl, text="필수 태그").grid(row=1, column=0, sticky="w", padx=6, pady=6)
         ttk.Entry(ctrl, textvariable=self.tags_var, width=60).grid(
             row=1, column=1, sticky="we", padx=6, pady=6
         )
+        self.run_button = ttk.Button(ctrl, text="검색", command=self._run_search)
+        self.run_button.grid(row=1, column=2, padx=6, pady=6)
+
+        options = ttk.Frame(ctrl)
+        options.grid(row=2, column=0, columnspan=2, sticky="w", padx=6, pady=4)
         ttk.Checkbutton(
-            ctrl, text="네거티브 태그 포함", variable=self.include_negative_var
-        ).grid(row=1, column=2, padx=6, pady=6)
-
-        ttk.Checkbutton(ctrl, text="증분 스캔", variable=self.incremental_var).grid(
-            row=2, column=0, sticky="w", padx=6, pady=6
+            options, text="네거티브 태그 포함", variable=self.include_negative_var
+        ).pack(side=tk.LEFT, padx=(0, 10))
+        ttk.Checkbutton(options, text="증분 스캔", variable=self.incremental_var).pack(
+            side=tk.LEFT
         )
-        button_frame = ttk.Frame(ctrl)
-        button_frame.grid(row=2, column=1, sticky="w", padx=6, pady=6)
-        self.run_button = ttk.Button(button_frame, text="검색", command=self._run_search)
-        self.run_button.pack(side=tk.LEFT)
-        self.scan_button = ttk.Button(button_frame, text="DB 스캔", command=self._run_scan)
-        self.scan_button.pack(side=tk.LEFT, padx=6)
+
+        self.scan_button = ttk.Button(ctrl, text="DB 스캔", command=self._run_scan)
+        self.scan_button.grid(row=2, column=2, padx=6, pady=4)
+
         ttk.Label(ctrl, textvariable=self.status_var).grid(
-            row=2, column=2, sticky="w", padx=6, pady=6
+            row=3, column=0, sticky="w", padx=6, pady=4, columnspan=3
         )
-
         ttk.Label(
             ctrl,
             text=(
                 "설명: 검색은 필수 태그 AND 조건입니다. "
                 "DB 스캔은 폴더 전체를 읽어 태그를 DB에 저장합니다."
             ),
-        ).grid(row=3, column=0, columnspan=3, sticky="w", padx=6, pady=4)
+        ).grid(row=4, column=0, columnspan=3, sticky="w", padx=6, pady=4)
 
-        result_frame = ttk.Labelframe(parent, text="일치 파일")
+        result_frame = ttk.Labelframe(parent, text="검색 결과")
         result_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=8)
-        self.result_view = ResultView(result_frame, show_filters=False)
+        self.result_view = ResultView(result_frame, show_filters=True)
 
     def _select_folder(self) -> None:
         folder = filedialog.askdirectory(title="폴더 선택")
@@ -109,7 +109,7 @@ class SearchTab:
         self.start_time = time.monotonic()
         if self.result_view:
             self.result_view.clear()
-        self.status_var.set("검색 중...")
+        self.status_var.set("검색 준비 중...")
         self.run_button.config(state="disabled")
         self.scan_button.config(state="disabled")
 
@@ -146,7 +146,7 @@ class SearchTab:
         self.start_time = time.monotonic()
         if self.result_view:
             self.result_view.clear()
-        self.status_var.set("DB 스캔 중...")
+        self.status_var.set("DB 스캔 준비 중...")
         self.run_button.config(state="disabled")
         self.scan_button.config(state="disabled")
 

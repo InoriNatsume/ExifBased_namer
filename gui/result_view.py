@@ -16,10 +16,14 @@ class ResultView:
         *,
         show_filters: bool = True,
         hidden_statuses: set[str] | None = None,
+        list_weight: int = 3,
+        preview_weight: int = 2,
+        sash_ratio: float = 0.6,
     ) -> None:
         self.show_filters = show_filters
         self.hidden_statuses = set(hidden_statuses or [])
         self.filter_vars: dict[str, tk.BooleanVar] = {}
+        self.sash_ratio = max(0.1, min(sash_ratio, 0.9))
 
         self.records: list[dict] = []
         self.filtered_indices: list[int] = []
@@ -40,8 +44,8 @@ class ResultView:
                 side=tk.RIGHT
             )
 
-        pane = ttk.PanedWindow(parent, orient=tk.HORIZONTAL)
-        pane.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
+        self.pane = ttk.PanedWindow(parent, orient=tk.HORIZONTAL)
+        self.pane.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
 
         list_frame = ttk.Frame(pane)
         self.listbox = tk.Listbox(list_frame)
@@ -50,7 +54,7 @@ class ResultView:
         self.listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.listbox.bind("<<ListboxSelect>>", self._on_select)
-        pane.add(list_frame, weight=2)
+        self.pane.add(list_frame, weight=list_weight)
 
         preview_frame = ttk.Frame(pane)
         ttk.Label(preview_frame, textvariable=self.preview_path_var).pack(
@@ -59,7 +63,8 @@ class ResultView:
         self.preview_label = tk.Label(preview_frame, text="미리보기 없음", anchor="center")
         self.preview_label.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
         self.preview_label.bind("<Configure>", self._on_preview_resize)
-        pane.add(preview_frame, weight=1)
+        self.pane.add(preview_frame, weight=preview_weight)
+        parent.after(100, self._set_sash)
 
     def clear(self) -> None:
         self.records = []
@@ -130,3 +135,9 @@ class ResultView:
         img.thumbnail((width - 10, height - 10))
         self.preview_image = ImageTk.PhotoImage(img)
         self.preview_label.config(image=self.preview_image, text="")
+
+    def _set_sash(self) -> None:
+        width = self.pane.winfo_width()
+        if width <= 0:
+            return
+        self.pane.sashpos(0, int(width * self.sash_ratio))

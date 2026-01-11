@@ -38,7 +38,6 @@ class RenameTab:
         self.issue_path: str | None = None
         self.issue_handle = None
         self.issue_count = 0
-        self.issue_path_var = tk.StringVar()
 
         self.result_view: ResultView | None = None
 
@@ -54,6 +53,7 @@ class RenameTab:
     def _build(self, parent: ttk.Frame) -> None:
         ctrl = ttk.Labelframe(parent, text="파일명 변경")
         ctrl.pack(fill=tk.X, padx=10, pady=8)
+        ctrl.columnconfigure(1, weight=1)
 
         ttk.Label(ctrl, text="원본 폴더").grid(
             row=0, column=0, sticky="w", padx=6, pady=6
@@ -65,9 +65,7 @@ class RenameTab:
             row=0, column=2, padx=6, pady=6
         )
 
-        ttk.Label(ctrl, text="변수 순서").grid(
-            row=1, column=0, sticky="w", padx=6, pady=6
-        )
+        ttk.Label(ctrl, text="변수 순서").grid(row=1, column=0, sticky="w", padx=6, pady=6)
         ttk.Entry(ctrl, textvariable=self.order_var, width=60).grid(
             row=1, column=1, sticky="we", padx=6, pady=6
         )
@@ -75,9 +73,7 @@ class RenameTab:
             row=1, column=2, padx=6, pady=6
         )
 
-        ttk.Label(ctrl, text="템플릿").grid(
-            row=2, column=0, sticky="w", padx=6, pady=6
-        )
+        ttk.Label(ctrl, text="템플릿").grid(row=2, column=0, sticky="w", padx=6, pady=6)
         ttk.Entry(ctrl, textvariable=self.template_var, width=60).grid(
             row=2, column=1, sticky="we", padx=6, pady=6
         )
@@ -85,32 +81,30 @@ class RenameTab:
             ctrl, text="네거티브 태그 포함", variable=self.include_negative_var
         ).grid(row=2, column=2, padx=6, pady=6)
 
-        ttk.Checkbutton(ctrl, text="드라이런", variable=self.dry_run_var).grid(
-            row=3, column=1, sticky="w", padx=6, pady=6
+        options = ttk.Frame(ctrl)
+        options.grid(row=3, column=0, columnspan=2, sticky="w", padx=6, pady=4)
+        ttk.Checkbutton(options, text="드라이런", variable=self.dry_run_var).pack(
+            side=tk.LEFT
         )
-        self.run_button = ttk.Button(ctrl, text="실행", command=self._run)
-        self.run_button.grid(row=3, column=2, padx=6, pady=6)
-        self.strip_button = ttk.Button(ctrl, text="@@@ 제거", command=self._run_strip)
-        self.strip_button.grid(row=3, column=0, padx=6, pady=6)
+
+        buttons = ttk.Frame(ctrl)
+        buttons.grid(row=3, column=2, sticky="e", padx=6, pady=4)
+        self.strip_button = ttk.Button(buttons, text="@@@ 제거", command=self._run_strip)
+        self.strip_button.pack(side=tk.LEFT, padx=(0, 6))
+        self.run_button = ttk.Button(buttons, text="실행", command=self._run)
+        self.run_button.pack(side=tk.LEFT)
+
         ttk.Label(ctrl, textvariable=self.status_var).grid(
-            row=4, column=0, sticky="w", padx=6, pady=6, columnspan=3
+            row=4, column=0, sticky="w", padx=6, pady=4, columnspan=3
         )
-        ttk.Label(ctrl, text="문제 로그").grid(
-            row=5, column=0, sticky="w", padx=6, pady=6
-        )
-        ttk.Entry(ctrl, textvariable=self.issue_path_var, width=60, state="readonly").grid(
-            row=5, column=1, sticky="we", padx=6, pady=6
-        )
-        ttk.Button(ctrl, text="열기", command=self._open_issue_log).grid(
-            row=5, column=2, padx=6, pady=6
-        )
+
         ttk.Label(
             ctrl,
             text=(
-                "설명: 드라이런=파일 변경 없이 결과만 확인, "
-                "@@@ 제거=파일명 끝의 @@@숫자를 제거"
+                "설명: 드라이런=파일 이동 없이 결과만 확인, "
+                "@@@ 제거=파일명 끝 @@@숫자 제거"
             ),
-        ).grid(row=6, column=0, columnspan=3, sticky="w", padx=6, pady=4)
+        ).grid(row=5, column=0, columnspan=3, sticky="w", padx=6, pady=4)
 
         result_frame = ttk.Labelframe(parent, text="결과")
         result_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=8)
@@ -167,10 +161,9 @@ class RenameTab:
         self.issue_count = 0
         if self.result_view:
             self.result_view.clear()
-        self.status_var.set("진행 중...")
+        self.status_var.set("실행 준비 중...")
         self.run_button.config(state="disabled")
         self.strip_button.config(state="disabled")
-        self.issue_path_var.set("")
 
         self.queue = queue.Queue()
         payload = {
@@ -264,10 +257,9 @@ class RenameTab:
         self.strip_start_time = time.monotonic()
         if self.result_view:
             self.result_view.clear()
-        self.status_var.set("@@@ 제거 진행 중...")
+        self.status_var.set("@@@ 제거 준비 중...")
         self.run_button.config(state="disabled")
         self.strip_button.config(state="disabled")
-        self.issue_path_var.set("")
 
         self.strip_queue = queue.Queue()
         payload = {
@@ -358,7 +350,7 @@ class RenameTab:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             self.issue_path = str(Path(folder) / f"issues_rename_{timestamp}.txt")
             self.issue_handle = open(self.issue_path, "w", encoding="utf-8")
-            self.issue_path_var.set(self.issue_path)
+            self.app.set_issue_log("rename", self.issue_path)
         self.issue_handle.write(f"{status} | {text}\n")
         self.issue_handle.flush()
         self.issue_count += 1
@@ -370,10 +362,6 @@ class RenameTab:
             self.issue_handle = None
             if self.issue_count > 0 and self.issue_path:
                 open_in_default_app(self.issue_path)
-
-    def _open_issue_log(self) -> None:
-        if self.issue_path:
-            open_in_default_app(self.issue_path)
 
     def _make_record(self, status: str, payload: dict) -> dict:
         source = payload.get("source")

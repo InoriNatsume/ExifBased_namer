@@ -38,7 +38,6 @@ class MoveTab:
         self.issue_path: str | None = None
         self.issue_handle = None
         self.issue_count = 0
-        self.issue_path_var = tk.StringVar()
 
         self.result_view: ResultView | None = None
 
@@ -47,6 +46,7 @@ class MoveTab:
     def _build(self, parent: ttk.Frame) -> None:
         ctrl = ttk.Labelframe(parent, text="폴더 분류")
         ctrl.pack(fill=tk.X, padx=10, pady=8)
+        ctrl.columnconfigure(1, weight=1)
 
         ttk.Label(ctrl, text="원본 폴더").grid(
             row=0, column=0, sticky="w", padx=6, pady=6
@@ -68,9 +68,7 @@ class MoveTab:
             row=1, column=2, padx=6, pady=6
         )
 
-        ttk.Label(ctrl, text="변수").grid(
-            row=2, column=0, sticky="w", padx=6, pady=6
-        )
+        ttk.Label(ctrl, text="변수").grid(row=2, column=0, sticky="w", padx=6, pady=6)
         self.variable_combo = ttk.Combobox(
             ctrl, textvariable=self.variable_var, state="readonly"
         )
@@ -86,22 +84,17 @@ class MoveTab:
             ctrl, text="네거티브 태그 포함", variable=self.include_negative_var
         ).grid(row=3, column=2, padx=6, pady=6)
 
-        ttk.Checkbutton(ctrl, text="드라이런", variable=self.dry_run_var).grid(
-            row=4, column=1, sticky="w", padx=6, pady=6
+        options = ttk.Frame(ctrl)
+        options.grid(row=4, column=0, columnspan=2, sticky="w", padx=6, pady=4)
+        ttk.Checkbutton(options, text="드라이런", variable=self.dry_run_var).pack(
+            side=tk.LEFT
         )
+
         self.run_button = ttk.Button(ctrl, text="실행", command=self._run)
-        self.run_button.grid(row=4, column=2, padx=6, pady=6)
+        self.run_button.grid(row=4, column=2, padx=6, pady=4)
+
         ttk.Label(ctrl, textvariable=self.status_var).grid(
-            row=4, column=0, sticky="w", padx=6, pady=6, columnspan=3
-        )
-        ttk.Label(ctrl, text="문제 로그").grid(
-            row=5, column=0, sticky="w", padx=6, pady=6
-        )
-        ttk.Entry(ctrl, textvariable=self.issue_path_var, width=60, state="readonly").grid(
-            row=5, column=1, sticky="we", padx=6, pady=6
-        )
-        ttk.Button(ctrl, text="열기", command=self._open_issue_log).grid(
-            row=5, column=2, padx=6, pady=6
+            row=5, column=0, sticky="w", padx=6, pady=4, columnspan=3
         )
         ttk.Label(
             ctrl, text="설명: 드라이런=파일 이동 없이 결과만 확인"
@@ -168,9 +161,8 @@ class MoveTab:
         self.issue_count = 0
         if self.result_view:
             self.result_view.clear()
-        self.status_var.set("진행 중...")
+        self.status_var.set("진행 준비 중...")
         self.run_button.config(state="disabled")
-        self.issue_path_var.set("")
 
         self.queue = queue.Queue()
         payload = {
@@ -279,7 +271,7 @@ class MoveTab:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             self.issue_path = str(Path(folder) / f"issues_move_{timestamp}.txt")
             self.issue_handle = open(self.issue_path, "w", encoding="utf-8")
-            self.issue_path_var.set(self.issue_path)
+            self.app.set_issue_log("move", self.issue_path)
         self.issue_handle.write(f"{status} | {text}\n")
         self.issue_handle.flush()
         self.issue_count += 1
@@ -291,7 +283,3 @@ class MoveTab:
             self.issue_handle = None
             if self.issue_count > 0 and self.issue_path:
                 open_in_default_app(self.issue_path)
-
-    def _open_issue_log(self) -> None:
-        if self.issue_path:
-            open_in_default_app(self.issue_path)

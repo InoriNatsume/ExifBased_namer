@@ -26,7 +26,6 @@ class EditorTab:
         self.preset_name_var = tk.StringVar()
         self.variable_name_var = tk.StringVar()
         self.value_name_var = tk.StringVar()
-        self.value_tags_var = tk.StringVar()
         self.bulk_prefix_var = tk.StringVar()
         self.bulk_suffix_var = tk.StringVar()
         self.bulk_find_var = tk.StringVar()
@@ -34,31 +33,33 @@ class EditorTab:
         self.bulk_remove_var = tk.StringVar()
         self.common_tags_by_var: dict[str, list[str]] = {}
 
+        self.value_tags_text: tk.Text | None = None
+
         self._build(parent)
 
     def _build(self, parent: ttk.Frame) -> None:
         header = ttk.Frame(parent)
         header.pack(fill=tk.X, padx=10, pady=8)
 
-        ttk.Label(header, text="프리셋 이름").pack(side=tk.LEFT)
+        ttk.Label(header, text="템플릿 이름").pack(side=tk.LEFT)
         ttk.Entry(header, textvariable=self.preset_name_var, width=30).pack(
             side=tk.LEFT, padx=8
         )
         ttk.Button(header, text="이름 적용", command=self._apply_preset_name).pack(
             side=tk.LEFT, padx=4
         )
-        ttk.Button(header, text="프리셋 불러오기", command=self._load_preset).pack(
+        ttk.Button(header, text="템플릿 불러오기", command=self._load_preset).pack(
             side=tk.LEFT, padx=4
         )
-        ttk.Button(header, text="프리셋 저장", command=self._save_preset).pack(
+        ttk.Button(header, text="템플릿 저장", command=self._save_preset).pack(
             side=tk.LEFT
         )
 
         ttk.Label(
             parent,
             text=(
-                "설명: 변수는 분류 기준, 값은 변수의 항목, "
-                "태그 조합은 값이 필요로 하는 태그 묶음"
+                "설명: 변수=분류 기준, 값=변수의 항목, "
+                "태그 조합=값이 포함해야 하는 태그 묶음"
             ),
         ).pack(anchor="w", padx=10, pady=4)
 
@@ -69,9 +70,9 @@ class EditorTab:
         main.columnconfigure(2, weight=1)
         main.rowconfigure(0, weight=1)
 
-        var_frame = ttk.Labelframe(main, text="변수")
+        var_frame = ttk.Labelframe(main, text="변수 목록")
         var_frame.grid(row=0, column=0, sticky="nsew", padx=6)
-        self.variables_list = tk.Listbox(var_frame, height=18)
+        self.variables_list = tk.Listbox(var_frame, height=16)
         self.variables_list.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
         self.variables_list.bind("<<ListboxSelect>>", self._on_variable_select)
 
@@ -82,9 +83,9 @@ class EditorTab:
             side=tk.LEFT, padx=4
         )
 
-        val_frame = ttk.Labelframe(main, text="값")
+        val_frame = ttk.Labelframe(main, text="값 목록")
         val_frame.grid(row=0, column=1, sticky="nsew", padx=6)
-        self.values_list = tk.Listbox(val_frame, height=18)
+        self.values_list = tk.Listbox(val_frame, height=16)
         self.values_list.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
         self.values_list.bind("<<ListboxSelect>>", self._on_value_select)
 
@@ -97,7 +98,7 @@ class EditorTab:
 
         io_btns = ttk.Frame(val_frame)
         io_btns.pack(fill=tk.X, padx=6, pady=4)
-        ttk.Button(io_btns, text="JSON 불러오기", command=self._import_values).pack(
+        ttk.Button(io_btns, text="SDSTUDIO/NAIS 불러오기", command=self._import_values).pack(
             side=tk.LEFT
         )
         ttk.Button(io_btns, text="NAIS 내보내기", command=self._export_values).pack(
@@ -110,7 +111,7 @@ class EditorTab:
             side=tk.LEFT, padx=4
         )
 
-        detail_frame = ttk.Labelframe(main, text="상세")
+        detail_frame = ttk.Labelframe(main, text="선택 편집")
         detail_frame.grid(row=0, column=2, sticky="nsew", padx=6)
 
         ttk.Label(detail_frame, text="변수 이름").pack(anchor="w", padx=6, pady=2)
@@ -125,10 +126,6 @@ class EditorTab:
 
         ttk.Label(detail_frame, text="값 이름").pack(anchor="w", padx=6, pady=2)
         ttk.Entry(detail_frame, textvariable=self.value_name_var).pack(
-            fill=tk.X, padx=6
-        )
-        ttk.Label(detail_frame, text="값 태그").pack(anchor="w", padx=6, pady=2)
-        ttk.Entry(detail_frame, textvariable=self.value_tags_var).pack(
             fill=tk.X, padx=6
         )
         ttk.Button(detail_frame, text="값 적용", command=self._apply_value).pack(
@@ -150,7 +147,7 @@ class EditorTab:
             anchor="w", pady=2
         )
 
-        ttk.Label(bulk_frame, text="단어 바꾸기").pack(anchor="w", pady=(6, 0))
+        ttk.Label(bulk_frame, text="찾기 / 바꾸기").pack(anchor="w", pady=(6, 0))
         ttk.Entry(bulk_frame, textvariable=self.bulk_find_var).pack(fill=tk.X, pady=2)
         ttk.Entry(bulk_frame, textvariable=self.bulk_replace_var).pack(
             fill=tk.X, pady=2
@@ -163,6 +160,17 @@ class EditorTab:
         ttk.Entry(bulk_frame, textvariable=self.bulk_remove_var).pack(fill=tk.X, pady=2)
         ttk.Button(bulk_frame, text="적용", command=self._bulk_remove).pack(
             anchor="w", pady=2
+        )
+
+        tag_frame = ttk.Labelframe(parent, text="태그 편집")
+        tag_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=8)
+        self.value_tags_text = tk.Text(tag_frame, height=6, wrap="word")
+        self.value_tags_text.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
+
+        tag_buttons = ttk.Frame(tag_frame)
+        tag_buttons.pack(fill=tk.X, padx=6, pady=4)
+        ttk.Button(tag_buttons, text="태그 적용", command=self._apply_value).pack(
+            side=tk.LEFT
         )
 
     def refresh(self) -> None:
@@ -183,7 +191,7 @@ class EditorTab:
 
     def _load_preset(self) -> None:
         path = filedialog.askopenfilename(
-            title="프리셋 불러오기",
+            title="템플릿 불러오기",
             filetypes=[("JSON", "*.json")],
         )
         if not path:
@@ -191,7 +199,7 @@ class EditorTab:
         try:
             preset = load_preset(path)
         except Exception as exc:
-            messagebox.showerror("프리셋 불러오기", f"불러오기 실패: {exc}")
+            messagebox.showerror("템플릿 불러오기", f"불러오기 실패: {exc}")
             return
         self.state.load_preset(preset)
         self.selected_variable_index = None
@@ -211,9 +219,9 @@ class EditorTab:
             messagebox.showerror("검증 오류", error)
             return
         preset = self.state.preset
-        filename = f"{preset.name or 'preset'}.json"
+        filename = f"{preset.name or 'template'}.json"
         path = filedialog.asksaveasfilename(
-            title="프리셋 저장",
+            title="템플릿 저장",
             defaultextension=".json",
             initialfile=filename,
             filetypes=[("JSON", "*.json")],
@@ -223,7 +231,7 @@ class EditorTab:
         try:
             save_preset(path, preset)
         except Exception as exc:
-            messagebox.showerror("프리셋 저장", f"저장 실패: {exc}")
+            messagebox.showerror("템플릿 저장", f"저장 실패: {exc}")
             return
         logger.info("Preset saved: %s", path)
 
@@ -289,7 +297,7 @@ class EditorTab:
         tags_input = simple_input(
             self.app.root,
             "값 태그",
-            "태그를 입력하세요. (쉼표 구분)",
+            "태그를 입력하세요 (쉼표 구분)",
         )
         if not tags_input:
             messagebox.showwarning("값", "태그가 필요합니다.")
@@ -326,7 +334,7 @@ class EditorTab:
         if var is None or idx is None:
             return
         name = self.value_name_var.get().strip()
-        raw_tags = self.value_tags_var.get()
+        raw_tags = self._get_value_tags_text()
         tags = split_novelai_tags(raw_tags)
         if not tags:
             messagebox.showwarning("값", "태그가 필요합니다.")
@@ -344,7 +352,7 @@ class EditorTab:
             messagebox.showwarning("불러오기", "먼저 변수를 선택하세요.")
             return
         path = filedialog.askopenfilename(
-            title="JSON 불러오기",
+            title="SDSTUDIO/NAIS 불러오기",
             filetypes=[("JSON", "*.json")],
         )
         if not path:
@@ -368,7 +376,7 @@ class EditorTab:
         if len(filtered) != len(values):
             messagebox.showwarning("불러오기", "태그가 비어있는 값이 제외되었습니다.")
         if not filtered:
-            messagebox.showerror("불러오기", "유효한 값이 없습니다. (태그 비어있음)")
+            messagebox.showerror("불러오기", "유효한 값이 없습니다. (태그 없음)")
             return
 
         replace = messagebox.askyesno(
@@ -404,7 +412,7 @@ class EditorTab:
             if conflict_summary.removed_indices:
                 messagebox.showinfo(
                     "불러오기",
-                    f"충돌 항목 {len(conflict_summary.removed_indices)}개를 제외했습니다.",
+                    f"충돌 항목 {len(conflict_summary.removed_indices)}개가 제외되었습니다.",
                 )
             if not merged:
                 messagebox.showerror("불러오기", "모든 값이 제거되었습니다.")
@@ -458,7 +466,7 @@ class EditorTab:
             if conflict_summary.removed_indices:
                 messagebox.showinfo(
                     "공통 태그 제외",
-                    f"충돌 항목 {len(conflict_summary.removed_indices)}개를 제외했습니다.",
+                    f"충돌 항목 {len(conflict_summary.removed_indices)}개가 제외되었습니다.",
                 )
             if not updated_values:
                 messagebox.showerror("공통 태그 제외", "모든 값이 제거되었습니다.")
@@ -468,7 +476,7 @@ class EditorTab:
         self._replace_variable(updated)
         self._refresh_values()
         messagebox.showinfo(
-            "공통 태그 제외", f"공통 태그 {len(common_tags)}개를 제외했습니다."
+            "공통 태그 제외", f"공통 태그 {len(common_tags)}개가 제외되었습니다."
         )
 
     def _show_common_tags(self) -> None:
@@ -585,11 +593,23 @@ class EditorTab:
         var = self._get_selected_variable()
         if var is None or idx is None:
             self.value_name_var.set("")
-            self.value_tags_var.set("")
+            self._set_value_tags_text("")
             return
         value = var.values[idx]
         self.value_name_var.set(value.name)
-        self.value_tags_var.set(", ".join(value.tags))
+        self._set_value_tags_text(", ".join(value.tags))
+
+    def _set_value_tags_text(self, text: str) -> None:
+        if not self.value_tags_text:
+            return
+        self.value_tags_text.delete("1.0", tk.END)
+        if text:
+            self.value_tags_text.insert("1.0", text)
+
+    def _get_value_tags_text(self) -> str:
+        if not self.value_tags_text:
+            return ""
+        return self.value_tags_text.get("1.0", tk.END).strip()
 
     def _replace_variable(self, updated: Variable) -> None:
         idx = self.selected_variable_index
