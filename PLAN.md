@@ -15,6 +15,18 @@
 - 버전 필드 추가(향후 호환성)
 - 예시 JSON 문서화
 
+## 1-1. DB 설계(초안, SQLite)
+- 스키마 정의
+  - images(id, path, mtime, size, hash)
+  - tags(image_id, tag)
+  - matches(image_id, variable, status, values)
+- 인덱스 설계
+  - path/mtime/tag/variable/status
+- 스캔 파이프라인
+  - 최초 풀스캔 → DB 저장
+  - 이후 증분 스캔(변경 파일만 재처리)
+- 메타 테이블(schema_version) 추가 및 간단 마이그레이션 규칙 정의
+
 ## 2. Python Sidecar 구현
 - stdin/stdout JSON Lines 루프
 - 작업 큐/상태 관리 (job manager)
@@ -37,6 +49,17 @@
   - `core/runner/` 또는 `sidecar/runner.py`에 병렬 실행 모듈화
   - 진행도/중간 결과 스트리밍 API 공통화
   - Tkinter/타우리 UI는 동일 API를 호출
+
+## 2-3. DB 연동 계획
+- sidecar 작업에서 DB 우선 조회
+- 검색/필터는 DB 질의로 처리
+- 태그 추출 결과는 DB에 캐시
+- UI에 필요한 최소 결과만 전송
+
+## 2-4. 태그 저장/캐시 정책
+- tags 테이블(행 단위) 기본
+- 필요 시 images.tags_json 병행 저장
+- 썸네일 캐시: cache/thumbs/ (해시 키)
 
 ## 3. Tauri UI 프로토타입
 - 프레임워크: Svelte
@@ -80,6 +103,11 @@
   - 공통 태그 캐시는 변수 이름 기준으로 저장
   - 결과 목록은 작업 단위로 분리 보관
 
+## 3-3. 선택 보강(확장 옵션)
+- 태그 출처 분리 저장(positive/negative/char)
+- 변수별 매칭 결과 캐시(DB)
+- 대규모 스캔 성능 측정 지표 기록
+
 ## 4. 패키징/배포
 - Python sidecar 빌드(PyInstaller 등)
 - Tauri 번들에 sidecar 포함
@@ -103,6 +131,18 @@
   - conftest.py로 공통 설정 이동
   - fixtures/parametrize 적용
   - CI에서 pytest 실행 추가
+
+## 7-1. 디버깅/검증 도구 제안 (debug/ 폴더)
+- `debug/inspect_exif.py`: EXIF/스텔스 태그 수동 확인
+- `debug/ipc_echo.py`: IPC 메시지 송수신 테스트(에코 서버)
+- `debug/db_smoke.py`: DB 스키마 생성/간단 쿼리 검증
+- `debug/thumb_cache.py`: 썸네일 캐시 생성/정리 테스트
+
+## 7-2. IPC/DB 관련 테스트 아이디어
+- IPC 메시지 파서(부분 라인/깨진 JSON) 복원 테스트
+- 취소 요청 시 작업 중단/정리 테스트
+- DB 증분 스캔(변경 파일만 재처리) 검증
+- 태그 저장 방식별 검색 성능 비교
 
 ## 8. 배포 전 준비(레포 정리)
 - requirements.txt 추가 및 CI에서 사용
