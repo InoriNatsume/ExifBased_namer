@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Iterable
 
-from .schema import VariableValue
+from ..preset.schema import VariableValue
 
 
 def compute_common_tags(tag_lists: Iterable[Iterable[str]]) -> list[str]:

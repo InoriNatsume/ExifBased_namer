@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Iterable
 
-from .extract import extract_payloads_from_image
-from .normalize_novelai import merge_prompt_tags, normalize_novelai_payload
+from .payload import extract_payloads_from_image
+from ..normalize.novelai import merge_prompt_tags, normalize_novelai_payload
 
 
 def _dedupe(tags: Iterable[str]) -> list[str]:

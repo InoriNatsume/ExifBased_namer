@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..normalize_novelai import split_novelai_tags
-from ..schema import VariableValue
+from ..normalize import split_novelai_tags
+from ..preset.schema import VariableValue
 
 
 def _build_value(name: str, prompt: str) -> VariableValue:

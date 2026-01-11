@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Iterable
 
-from .schema import MatchResult, MatchStatus, Variable, VariableMatch
+from ..preset.schema import MatchResult, MatchStatus, Variable, VariableMatch
 
 
 def _normalize_tag(tag: str) -> str:

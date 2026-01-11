@@ -1,0 +1,7 @@
+{
+  "identifier": "main-window",
+  "description": "Main window IPC permissions.",
+  "local": true,
+  "windows": ["main"],
+  "permissions": ["core:default", "core:event:default", "allow-run-sidecar-job"]
+}

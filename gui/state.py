@@ -1,4 +1,4 @@
-from core.schema import Preset, Variable
+from core.preset import Preset, Variable
 
 
 class AppState:

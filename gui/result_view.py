@@ -119,7 +119,8 @@ class ResultView:
             self.preview_image = None
             return
         try:
-            img = Image.open(path)
+            with Image.open(path) as opened:
+                img = opened.copy()
         except Exception:
             self.preview_label.config(text="미리보기 실패", image="")
             self.preview_image = None

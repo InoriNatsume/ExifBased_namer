@@ -1,7 +1,7 @@
 import re
 from typing import Iterable
 
-from .novelai_schema import parse_novelai_payload
+from .schema import parse_novelai_payload
 
 
 _NUMBER_RE = re.compile(r"^-?\d+(?:\.\d+)?$")

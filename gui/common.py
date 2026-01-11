@@ -35,7 +35,7 @@ def simple_input(root: tk.Tk, title: str, prompt: str) -> str | None:
         result["value"] = value_var.get().strip() or None
         dialog.destroy()
 
-    ttk.Button(dialog, text="확인", command=submit).pack(pady=8)
+    ttk.Button(dialog, text="??", command=submit).pack(pady=8)
     dialog.wait_window()
     return result["value"]
 

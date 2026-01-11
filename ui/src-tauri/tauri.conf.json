@@ -1,0 +1,24 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "NAI 태그 분류기",
+  "version": "0.1.0",
+  "identifier": "com.nai.tag.classifier",
+  "build": {
+    "devUrl": "http://localhost:5173",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "security": {
+      "capabilities": ["main-window"]
+    },
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "NAI 태그 분류기",
+        "width": 1200,
+        "height": 800,
+        "devtools": true
+      }
+    ]
+  }
+}

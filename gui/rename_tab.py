@@ -7,11 +7,10 @@ import time
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
-from core.progress import format_eta
-from core.worker import build_variable_specs
-from gui.common import iter_image_files, open_in_default_app
+from core.utils import format_eta
+from gui.common import open_in_default_app
 from gui.result_view import ResultView
-from gui.tasks import rename_task, strip_suffix_task
+from gui.sidecar_client import run_sidecar_job
 
 
 logger = logging.getLogger(__name__)
@@ -66,7 +65,7 @@ class RenameTab:
             row=0, column=2, padx=6, pady=6
         )
 
-        ttk.Label(ctrl, text="변수 이름 순서").grid(
+        ttk.Label(ctrl, text="변수 순서").grid(
             row=1, column=0, sticky="w", padx=6, pady=6
         )
         ttk.Entry(ctrl, textvariable=self.order_var, width=60).grid(
@@ -91,9 +90,7 @@ class RenameTab:
         )
         self.run_button = ttk.Button(ctrl, text="실행", command=self._run)
         self.run_button.grid(row=3, column=2, padx=6, pady=6)
-        self.strip_button = ttk.Button(
-            ctrl, text="@@@ 제거", command=self._run_strip
-        )
+        self.strip_button = ttk.Button(ctrl, text="@@@ 제거", command=self._run_strip)
         self.strip_button.grid(row=3, column=0, padx=6, pady=6)
         ttk.Label(ctrl, textvariable=self.status_var).grid(
             row=4, column=0, sticky="w", padx=6, pady=6, columnspan=3
@@ -109,7 +106,10 @@ class RenameTab:
         )
         ttk.Label(
             ctrl,
-            text="설명: 드라이런=파일 변경 없이 결과만 확인, @@@ 제거=파일명 끝의 @@@숫자를 삭제",
+            text=(
+                "설명: 드라이런=파일 변경 없이 결과만 확인, "
+                "@@@ 제거=파일명 끝의 @@@숫자를 제거"
+            ),
         ).grid(row=6, column=0, columnspan=3, sticky="w", padx=6, pady=4)
 
         result_frame = ttk.Labelframe(parent, text="결과")
@@ -130,7 +130,7 @@ class RenameTab:
             return
         folder = self.source_var.get()
         if not folder:
-            messagebox.showwarning("파일명 변경", "먼저 원본 폴더를 선택하세요.")
+            messagebox.showwarning("파일명 변경", "원본 폴더를 선택하세요.")
             return
         order = [item.strip() for item in self.order_var.get().split(",") if item.strip()]
         if not order:
@@ -140,28 +140,26 @@ class RenameTab:
         variables_by_name = {var.name: var for var in self.state.preset.variables}
         missing = [name for name in order if name not in variables_by_name]
         if missing:
-            messagebox.showwarning("파일명 변경", f"알 수 없는 변수 이름: {', '.join(missing)}")
+            messagebox.showwarning("파일명 변경", f"없는 변수: {', '.join(missing)}")
             return
 
         template = self.template_var.get().strip()
         if not template:
             template = "_".join(f"[{key}]" for key in order)
 
-        image_paths = iter_image_files(folder)
-        if not image_paths:
-            messagebox.showinfo("파일명 변경", "이미지가 없습니다.")
-            return
-
-        vars_data = []
-        for key in order:
-            var = variables_by_name[key]
-            vars_data.append(
-                {"name": var.name, "values": [{"name": v.name, "tags": v.tags} for v in var.values]}
-            )
-        specs = build_variable_specs(vars_data)
+        variables_payload = [
+            {
+                "name": variables_by_name[key].name,
+                "values": [
+                    {"name": v.name, "tags": v.tags}
+                    for v in variables_by_name[key].values
+                ],
+            }
+            for key in order
+        ]
 
         self.stats = {"ok": 0, "unknown": 0, "conflict": 0, "error": 0}
-        self.total = len(image_paths)
+        self.total = 0
         self.processed = 0
         self.start_time = time.monotonic()
         self.issue_path = None
@@ -175,17 +173,21 @@ class RenameTab:
         self.issue_path_var.set("")
 
         self.queue = queue.Queue()
-        args = (
-            self.queue,
-            image_paths,
-            specs,
-            order,
-            template,
-            bool(self.prefix_var.get()),
-            bool(self.dry_run_var.get()),
-            bool(self.include_negative_var.get()),
+        payload = {
+            "folder": folder,
+            "order": order,
+            "template": template,
+            "prefix_mode": bool(self.prefix_var.get()),
+            "dry_run": bool(self.dry_run_var.get()),
+            "include_negative": bool(self.include_negative_var.get()),
+            "progress_step": 200,
+            "variables": variables_payload,
+        }
+        self.thread = threading.Thread(
+            target=run_sidecar_job,
+            args=("rename", payload, self.queue.put),
+            daemon=True,
         )
-        self.thread = threading.Thread(target=rename_task, args=args, daemon=True)
         self.thread.start()
         self.app.root.after(100, self._poll_queue)
 
@@ -197,8 +199,14 @@ class RenameTab:
             while True:
                 message = self.queue.get_nowait()
                 updated = True
-                if message[0] == "result":
-                    status, payload = message[1], message[2]
+                msg_type = message.get("type")
+                if msg_type == "result":
+                    status = message.get("status") or "OK"
+                    payload = {
+                        "source": message.get("source"),
+                        "target": message.get("target"),
+                        "message": message.get("message"),
+                    }
                     record = self._make_record(status, payload)
                     self.processed += 1
                     if status == "OK":
@@ -214,12 +222,24 @@ class RenameTab:
                         self._write_issue(status, record["text"])
                     if self.result_view:
                         self.result_view.add_record(record)
-                elif message[0] == "done":
+                elif msg_type == "progress":
+                    processed = int(message.get("processed") or 0)
+                    total = int(message.get("total") or 0)
+                    self.processed = max(self.processed, processed)
+                    if total:
+                        self.total = total
+                elif msg_type == "done":
+                    self.processed = max(self.processed, int(message.get("processed") or 0))
                     self.status_var.set(self._format_status("완료"))
                     self.run_button.config(state="normal")
                     self.strip_button.config(state="normal")
                     self._close_issue_log()
                     logger.info("Rename done: %s", self.stats)
+                    return
+                elif msg_type == "error":
+                    self.run_button.config(state="normal")
+                    self.strip_button.config(state="normal")
+                    messagebox.showerror("파일명 변경", message.get("message") or "error")
                     return
         except queue.Empty:
             pass
@@ -235,32 +255,31 @@ class RenameTab:
             return
         folder = self.source_var.get()
         if not folder:
-            messagebox.showwarning("@@@ 제거", "먼저 원본 폴더를 선택하세요.")
-            return
-
-        image_paths = iter_image_files(folder)
-        if not image_paths:
-            messagebox.showinfo("@@@ 제거", "이미지가 없습니다.")
+            messagebox.showwarning("@@@ 제거", "원본 폴더를 선택하세요.")
             return
 
         self.strip_stats = {"ok": 0, "skip": 0, "error": 0}
-        self.strip_total = len(image_paths)
+        self.strip_total = 0
         self.strip_processed = 0
         self.strip_start_time = time.monotonic()
         if self.result_view:
             self.result_view.clear()
-        self.status_var.set("@@@ 제거 중...")
+        self.status_var.set("@@@ 제거 진행 중...")
         self.run_button.config(state="disabled")
         self.strip_button.config(state="disabled")
         self.issue_path_var.set("")
 
         self.strip_queue = queue.Queue()
-        args = (
-            self.strip_queue,
-            image_paths,
-            bool(self.dry_run_var.get()),
+        payload = {
+            "folder": folder,
+            "dry_run": bool(self.dry_run_var.get()),
+            "progress_step": 200,
+        }
+        self.strip_thread = threading.Thread(
+            target=run_sidecar_job,
+            args=("strip_suffix", payload, self.strip_queue.put),
+            daemon=True,
         )
-        self.strip_thread = threading.Thread(target=strip_suffix_task, args=args, daemon=True)
         self.strip_thread.start()
         self.app.root.after(100, self._poll_strip_queue)
 
@@ -272,8 +291,14 @@ class RenameTab:
             while True:
                 message = self.strip_queue.get_nowait()
                 updated = True
-                if message[0] == "result":
-                    status, payload = message[1], message[2]
+                msg_type = message.get("type")
+                if msg_type == "result":
+                    status = message.get("status") or "OK"
+                    payload = {
+                        "source": message.get("source"),
+                        "target": message.get("target"),
+                        "message": message.get("message"),
+                    }
                     record = self._make_record(status, payload)
                     self.strip_processed += 1
                     if status == "OK":
@@ -284,11 +309,25 @@ class RenameTab:
                         self.strip_stats["error"] += 1
                     if self.result_view:
                         self.result_view.add_record(record)
-                elif message[0] == "done":
+                elif msg_type == "progress":
+                    processed = int(message.get("processed") or 0)
+                    total = int(message.get("total") or 0)
+                    self.strip_processed = max(self.strip_processed, processed)
+                    if total:
+                        self.strip_total = total
+                elif msg_type == "done":
+                    self.strip_processed = max(
+                        self.strip_processed, int(message.get("processed") or 0)
+                    )
                     self.status_var.set(self._format_strip_status("완료"))
                     self.run_button.config(state="normal")
                     self.strip_button.config(state="normal")
                     logger.info("Strip done: %s", self.strip_stats)
+                    return
+                elif msg_type == "error":
+                    self.run_button.config(state="normal")
+                    self.strip_button.config(state="normal")
+                    messagebox.showerror("@@@ 제거", message.get("message") or "error")
                     return
         except queue.Empty:
             pass
@@ -347,4 +386,10 @@ class RenameTab:
         else:
             text = f"{status} | {source}"
         preview_path = target or source
-        return {"status": status, "text": text, "source": source, "target": target, "preview": preview_path}
+        return {
+            "status": status,
+            "text": text,
+            "source": source,
+            "target": target,
+            "preview": preview_path,
+        }

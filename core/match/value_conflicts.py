@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable
 
-from .schema import VariableValue
+from ..preset.schema import VariableValue
 
 
 @dataclass(frozen=True)

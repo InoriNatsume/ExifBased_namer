@@ -2,7 +2,7 @@ from tests import _bootstrap  # noqa: F401
 
 import unittest
 
-from core.normalize_novelai import merge_prompt_tags, normalize_novelai_payload, split_novelai_tags
+from core.normalize import merge_prompt_tags, normalize_novelai_payload, split_novelai_tags
 
 
 class NormalizeTests(unittest.TestCase):

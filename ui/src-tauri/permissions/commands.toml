@@ -1,0 +1,5 @@
+# App command permissions
+[[permission]]
+identifier = "allow-run-sidecar-job"
+description = "Allows the run_sidecar_job command."
+commands.allow = ["run_sidecar_job"]

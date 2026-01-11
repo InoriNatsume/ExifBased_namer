@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Iterable
 
 from .classify import match_tag_and
-from .tag_extract import extract_tags_from_image
+from ..extract.tags import extract_tags_from_image
 
 
 def iter_search_results(

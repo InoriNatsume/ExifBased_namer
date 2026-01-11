@@ -7,11 +7,10 @@ import time
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
-from core.progress import format_eta
-from core.worker import build_variable_specs
-from gui.common import iter_image_files, open_in_default_app
+from core.utils import format_eta
+from gui.common import open_in_default_app
 from gui.result_view import ResultView
-from gui.tasks import move_task
+from gui.sidecar_client import run_sidecar_job
 
 
 logger = logging.getLogger(__name__)
@@ -69,7 +68,7 @@ class MoveTab:
             row=1, column=2, padx=6, pady=6
         )
 
-        ttk.Label(ctrl, text="변수 이름").grid(
+        ttk.Label(ctrl, text="변수").grid(
             row=2, column=0, sticky="w", padx=6, pady=6
         )
         self.variable_combo = ttk.Combobox(
@@ -133,10 +132,10 @@ class MoveTab:
         source = self.source_var.get()
         target = self.target_var.get()
         if not source:
-            messagebox.showwarning("폴더 분류", "먼저 원본 폴더를 선택하세요.")
+            messagebox.showwarning("폴더 분류", "원본 폴더를 선택하세요.")
             return
         if not target:
-            messagebox.showwarning("폴더 분류", "먼저 대상 폴더를 선택하세요.")
+            messagebox.showwarning("폴더 분류", "대상 폴더를 선택하세요.")
             return
         key = self.variable_var.get().strip()
         if not key:
@@ -145,23 +144,23 @@ class MoveTab:
 
         variables_by_name = {var.name: var for var in self.state.preset.variables}
         if key not in variables_by_name:
-            messagebox.showwarning("폴더 분류", "알 수 없는 변수 이름입니다.")
+            messagebox.showwarning("폴더 분류", "없는 변수입니다.")
             return
 
         template = self.template_var.get().strip() or "[value]"
-        image_paths = iter_image_files(source)
-        if not image_paths:
-            messagebox.showinfo("폴더 분류", "이미지가 없습니다.")
-            return
 
-        var = variables_by_name[key]
-        vars_data = [
-            {"name": var.name, "values": [{"name": v.name, "tags": v.tags} for v in var.values]}
+        variables_payload = [
+            {
+                "name": variables_by_name[key].name,
+                "values": [
+                    {"name": v.name, "tags": v.tags}
+                    for v in variables_by_name[key].values
+                ],
+            },
         ]
-        specs = build_variable_specs(vars_data)
 
         self.stats = {"ok": 0, "unknown": 0, "conflict": 0, "error": 0}
-        self.total = len(image_paths)
+        self.total = 0
         self.processed = 0
         self.start_time = time.monotonic()
         self.issue_path = None
@@ -174,17 +173,21 @@ class MoveTab:
         self.issue_path_var.set("")
 
         self.queue = queue.Queue()
-        args = (
-            self.queue,
-            image_paths,
-            specs,
-            key,
-            template,
-            target,
-            bool(self.dry_run_var.get()),
-            bool(self.include_negative_var.get()),
+        payload = {
+            "folder": source,
+            "variable_name": key,
+            "template": template,
+            "target_root": target,
+            "dry_run": bool(self.dry_run_var.get()),
+            "include_negative": bool(self.include_negative_var.get()),
+            "progress_step": 200,
+            "variables": variables_payload,
+        }
+        self.thread = threading.Thread(
+            target=run_sidecar_job,
+            args=("move", payload, self.queue.put),
+            daemon=True,
         )
-        self.thread = threading.Thread(target=move_task, args=args, daemon=True)
         self.thread.start()
         self.app.root.after(100, self._poll_queue)
 
@@ -196,8 +199,14 @@ class MoveTab:
             while True:
                 message = self.queue.get_nowait()
                 updated = True
-                if message[0] == "result":
-                    status, payload = message[1], message[2]
+                msg_type = message.get("type")
+                if msg_type == "result":
+                    status = message.get("status") or "OK"
+                    payload = {
+                        "source": message.get("source"),
+                        "target": message.get("target"),
+                        "message": message.get("message"),
+                    }
                     record = self._make_record(status, payload)
                     self.processed += 1
                     if status == "OK":
@@ -213,11 +222,22 @@ class MoveTab:
                         self._write_issue(status, record["text"])
                     if self.result_view:
                         self.result_view.add_record(record)
-                elif message[0] == "done":
+                elif msg_type == "progress":
+                    processed = int(message.get("processed") or 0)
+                    total = int(message.get("total") or 0)
+                    self.processed = max(self.processed, processed)
+                    if total:
+                        self.total = total
+                elif msg_type == "done":
+                    self.processed = max(self.processed, int(message.get("processed") or 0))
                     self.status_var.set(self._format_status("완료"))
                     self.run_button.config(state="normal")
                     self._close_issue_log()
                     logger.info("Move done: %s", self.stats)
+                    return
+                elif msg_type == "error":
+                    self.run_button.config(state="normal")
+                    messagebox.showerror("폴더 분류", message.get("message") or "error")
                     return
         except queue.Empty:
             pass

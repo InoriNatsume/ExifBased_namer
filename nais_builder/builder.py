@@ -6,8 +6,8 @@ import time
 from typing import Callable, Iterable
 from uuid import uuid4
 
-from core.tag_extract import extract_tags_from_image
-from core.tag_sets import remove_common_tags
+from core.extract import extract_tags_from_image
+from core.utils import remove_common_tags
 
 
 def _iter_image_files(folder: str | Path) -> list[Path]:

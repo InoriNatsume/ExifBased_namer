@@ -2,8 +2,8 @@ from tests import _bootstrap  # noqa: F401
 
 import unittest
 
-from core.classify import classify_tags, match_tag_and
-from core.schema import MatchStatus, Variable, VariableValue
+from core.match import classify_tags, match_tag_and
+from core.preset import MatchStatus, Variable, VariableValue
 
 
 class MatchTests(unittest.TestCase):

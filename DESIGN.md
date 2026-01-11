@@ -65,6 +65,7 @@
 - 증분 스캔: mtime/size/hash 기준 변경 파일만 재처리
 - 결과 상태(OK/UNKNOWN/CONFLICT/ERROR) 및 매칭 정보 저장
 - 공통 태그 제거/일괄 변경은 프리셋 레이어에서 처리
+- rename/move는 DB 태그 우선 사용, 미존재 시 태그 재추출
 
 ### DB 스키마(초안)
 - meta(schema_version)
@@ -106,7 +107,7 @@
 - 변수 내 모든 값의 태그 교집합을 공통 태그로 계산
 - 각 값의 태그에서 공통 태그를 제거하여 고유 태그만 유지
 - 공통 태그는 변수별 캐시로 저장(메모리) 및 별도 보기/복사 지원
-- 집합 연산 로직은 core.tag_sets로 분리
+- 집합 연산 로직은 core.utils.tag_sets로 분리
 
 ## 값 이름 일괄 변경
 - 앞/뒤 단어 추가
@@ -123,6 +124,7 @@
 - 편집/검색/파일명 변경/폴더 분류 탭
 - 결과 목록 스크롤 + 미리보기 + 필터
 - 문제 로그 파일 출력
+- 검색/파일명 변경/폴더 분류는 sidecar IPC를 통해 실행
 
 ## 향후 UI (Tauri + React/Svelte)
 권장: Tauri + Python sidecar + JSON Lines IPC
@@ -176,6 +178,11 @@ Svelte
 - `tests/`: unittest 기반 자동 테스트
 - `debug/`: 수동 디버깅 스크립트
 
+## 실행/경로 안내
+- 스크립트는 프로젝트 루트 기준 실행을 권장
+- sidecar는 루트 경로를 sys.path에 추가하여 core import를 보장
+- tests는 `_bootstrap.py`로 경로를 보정
+
 ## core/ 재구성안(초안)
 - `core/extract/`: EXIF/stealth payload 추출
 - `core/normalize/`: 태그 정규화/프롬프트 결합
@@ -183,3 +190,4 @@ Svelte
 - `core/preset/`: 프리셋 스키마/입출력
 - `core/adapters/`: 외부 포맷 임포트/익스포트(NAIS/Legacy)
 - `core/utils/`: 공통 유틸(파일명/집합 연산/진행도)
+- `core/runner/`: 병렬 처리용 워커

@@ -3,7 +3,7 @@ from tests import _bootstrap  # noqa: F401
 import unittest
 
 from core.adapters.nais import export_variable_to_nais
-from core.schema import Variable, VariableValue
+from core.preset import Variable, VariableValue
 
 
 class ImportExportTests(unittest.TestCase):

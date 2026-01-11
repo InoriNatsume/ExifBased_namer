@@ -13,56 +13,66 @@
 - 진행도/ETA 표준화
 - 취소(cancellation) 메시지 정의
 - 버전 필드 추가(향후 호환성)
-- 예시 JSON 문서화
+- 예시 JSON 문서화 [x] (`IPC_SPEC.md`)
 
 ## 1-1. DB 설계(초안, SQLite)
-- 스키마 정의
+- 스키마 정의 [x] (`db/schema.sql` 추가)
   - images(id, path, mtime, size, hash)
   - tags(image_id, tag)
   - matches(image_id, variable, status, values)
-- 인덱스 설계
+- 인덱스 설계 [x]
   - path/mtime/tag/variable/status
-- 스캔 파이프라인
+- 스캔 파이프라인 [x]
   - 최초 풀스캔 → DB 저장
   - 이후 증분 스캔(변경 파일만 재처리)
-- 메타 테이블(schema_version) 추가 및 간단 마이그레이션 규칙 정의
+- 메타 테이블(schema_version) 추가 및 간단 마이그레이션 규칙 정의 [x]
 
 ## 2. Python Sidecar 구현
-- stdin/stdout JSON Lines 루프
-- 작업 큐/상태 관리 (job manager)
-- 멀티프로세스 병렬 처리 연결
-- 중간 결과 스트리밍(result)
-- 오류/예외 처리 및 로그
-- 테스트용 CLI 스크립트
+- stdin/stdout JSON Lines 루프 [x] (`sidecar/main.py`)
+- 작업 큐/상태 관리 (job manager) [x]
+- 멀티프로세스 병렬 처리 연결 [x]
+- 중간 결과 스트리밍(result) [x] (scan/search)
+- 오류/예외 처리 및 로그 [x] (error/log 메시지)
+- 테스트용 CLI 스크립트 [x] (sidecar 직접 실행)
+- scan/search 로컬 검증 [x]
 
 ## 2-1. core/ 리팩터링 계획(단계적)
-- 1단계: 모듈 이동 계획 수립 및 import 경로 표준화
-- 2단계: `core/` 서브패키지 생성 (extract/normalize/match/preset/utils)
-- 3단계: 기존 코드 이동 + 공개 API 재정의 (호환 레이어 유지)
-- 4단계: 테스트 경로 업데이트 및 회귀 확인
-- 5단계: 문서/예시 경로 갱신
+- 1단계: 모듈 이동 계획 수립 및 import 경로 표준화 [x]
+- 2단계: `core/` 서브패키지 생성 (extract/normalize/match/preset/utils) [x]
+- 3단계: 기존 코드 이동 + 공개 API 재정의 (호환 레이어 유지) [x]
+- 4단계: 테스트 경로 업데이트 및 회귀 확인 [x]
+- 5단계: 문서/예시 경로 갱신 [x]
 
 ## 2-2. 병렬 처리 레이어 분리 계획
 - 현재: `gui/tasks.py`에 병렬 처리 로직 존재
 - 목표: sidecar 실행 레이어로 이동하여 UI/코어 분리 강화
 - 작업:
-  - `core/runner/` 또는 `sidecar/runner.py`에 병렬 실행 모듈화
-  - 진행도/중간 결과 스트리밍 API 공통화
-  - Tkinter/타우리 UI는 동일 API를 호출
+  - `core/runner/` 또는 `sidecar/runner.py`에 병렬 실행 모듈화 [x]
+  - 진행도/중간 결과 스트리밍 API 공통화 [x]
+  - Tkinter/타우리 UI는 동일 API를 호출 [x]
 
 ## 2-3. DB 연동 계획
-- sidecar 작업에서 DB 우선 조회
-- 검색/필터는 DB 질의로 처리
-- 태그 추출 결과는 DB에 캐시
-- UI에 필요한 최소 결과만 전송
+- sidecar 작업에서 DB 우선 조회 [x]
+- 검색/필터는 DB 질의로 처리 [x]
+- 태그 추출 결과는 DB에 캐시 [x]
+- rename/move는 DB 태그 우선 사용 [x]
+- UI에 필요한 최소 결과만 전송 [x]
 
 ## 2-4. 태그 저장/캐시 정책
-- tags 테이블(행 단위) 기본
-- 필요 시 images.tags_json 병행 저장
-- 썸네일 캐시: cache/thumbs/ (해시 키)
+- tags 테이블(행 단위) 기본 [x]
+- 필요 시 images.tags_json 병행 저장 [x]
+- 썸네일 캐시: cache/thumbs/ (해시 키) [ ] (debug 스크립트만 추가)
+
+## 2-5. Tkinter → Sidecar IPC 전환
+- 검색 탭: sidecar `search` 사용 [x]
+- 검색 탭: DB 스캔 버튼 추가 [x]
+- 파일명 변경 탭: sidecar `rename` 사용 [x]
+- 폴더 분류 탭: sidecar `move` 사용 [x]
+- @@@ 제거: sidecar `strip_suffix` 사용 [x]
 
 ## 3. Tauri UI 프로토타입
 - 프레임워크: Svelte
+- Svelte/Tauri 골격 + IPC 연결 준비 [x] (`ui/`)
 - 파일/폴더 선택 다이얼로그
 - 작업 탭 구조(편집/검색/파일명 변경/폴더 분류)
 - 결과 목록 + 미리보기 + 필터
@@ -133,10 +143,10 @@
   - CI에서 pytest 실행 추가
 
 ## 7-1. 디버깅/검증 도구 제안 (debug/ 폴더)
-- `debug/inspect_exif.py`: EXIF/스텔스 태그 수동 확인
-- `debug/ipc_echo.py`: IPC 메시지 송수신 테스트(에코 서버)
-- `debug/db_smoke.py`: DB 스키마 생성/간단 쿼리 검증
-- `debug/thumb_cache.py`: 썸네일 캐시 생성/정리 테스트
+- `debug/inspect_exif.py`: EXIF/스텔스 태그 수동 확인 [x]
+- `debug/ipc_echo.py`: IPC 메시지 송수신 테스트(에코 서버) [x]
+- `debug/db_smoke.py`: DB 스키마 생성/간단 쿼리 검증 [x]
+- `debug/thumb_cache.py`: 썸네일 캐시 생성/정리 테스트 [x]
 
 ## 7-2. IPC/DB 관련 테스트 아이디어
 - IPC 메시지 파서(부분 라인/깨진 JSON) 복원 테스트

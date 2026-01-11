@@ -2,9 +2,9 @@ from tests import _bootstrap  # noqa: F401
 
 import unittest
 
-from core.schema import VariableValue
-from core.value_conflicts import detect_value_conflicts
-from core.tag_sets import compute_common_tags, remove_common_tags_from_values
+from core.preset import VariableValue
+from core.match import detect_value_conflicts
+from core.utils import compute_common_tags, remove_common_tags_from_values
 
 
 class TagSetTests(unittest.TestCase):

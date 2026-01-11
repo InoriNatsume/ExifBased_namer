@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .tag_extract import extract_tags_from_image
+from ..extract.tags import extract_tags_from_image
 
 
 _VARIABLE_SPECS: list[dict[str, Any]] = []
@@ -39,6 +39,28 @@ def build_variable_specs(variables: list[dict[str, Any]]) -> list[dict[str, Any]
     return specs
 
 
+def match_variable_specs(
+    variable_specs: list[dict[str, Any]],
+    tags: list[str],
+) -> dict[str, dict[str, Any]]:
+    tag_set = _normalize_tags(tags)
+    matches: dict[str, dict[str, Any]] = {}
+    for spec in variable_specs:
+        matched = [
+            value["name"]
+            for value in spec["values"]
+            if value["tag_set"] and value["tag_set"].issubset(tag_set)
+        ]
+        if not matched:
+            status = "UNKNOWN"
+        elif len(matched) == 1:
+            status = "OK"
+        else:
+            status = "CONFLICT"
+        matches[spec["name"]] = {"status": status, "values": matched}
+    return matches
+
+
 def init_worker(variable_specs: list[dict[str, Any]], include_negative: bool) -> None:
     global _VARIABLE_SPECS, _INCLUDE_NEGATIVE
     _VARIABLE_SPECS = variable_specs
@@ -48,21 +70,7 @@ def init_worker(variable_specs: list[dict[str, Any]], include_negative: bool) ->
 def process_image(path: str) -> dict[str, Any]:
     try:
         tags = extract_tags_from_image(path, _INCLUDE_NEGATIVE)
-        tag_set = _normalize_tags(tags)
-        matches: dict[str, dict[str, Any]] = {}
-        for spec in _VARIABLE_SPECS:
-            matched = [
-                value["name"]
-                for value in spec["values"]
-                if value["tag_set"] and value["tag_set"].issubset(tag_set)
-            ]
-            if not matched:
-                status = "UNKNOWN"
-            elif len(matched) == 1:
-                status = "OK"
-            else:
-                status = "CONFLICT"
-            matches[spec["name"]] = {"status": status, "values": matched}
+        matches = match_variable_specs(_VARIABLE_SPECS, tags)
         return {"path": path, "matches": matches, "error": None}
     except Exception as exc:
         return {"path": path, "matches": {}, "error": str(exc)}

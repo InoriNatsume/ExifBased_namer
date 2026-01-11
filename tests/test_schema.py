@@ -4,7 +4,7 @@ import unittest
 
 from pydantic import ValidationError
 
-from core.schema import Variable, VariableValue
+from core.preset import Variable, VariableValue
 
 
 class SchemaTests(unittest.TestCase):

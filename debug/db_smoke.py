@@ -15,6 +15,8 @@ def main() -> None:
         print(f"스키마 파일 없음: {schema_path}")
         return
 
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+
     conn = sqlite3.connect(db_path)
     try:
         schema_sql = schema_path.read_text(encoding="utf-8")

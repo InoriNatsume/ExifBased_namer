@@ -3,8 +3,8 @@ from __future__ import annotations
 import time
 from uuid import uuid4
 
-from ..normalize_novelai import split_novelai_tags
-from ..schema import Variable, VariableValue
+from ..normalize import split_novelai_tags
+from ..preset.schema import Variable, VariableValue
 
 
 def import_nais_payload(payload: dict) -> tuple[str | None, list[VariableValue]]:

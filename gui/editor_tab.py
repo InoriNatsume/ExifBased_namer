@@ -5,11 +5,10 @@ from tkinter import filedialog, messagebox, ttk
 
 from core.adapters.legacy import import_legacy_payload
 from core.adapters.nais import export_variable_to_nais, import_nais_payload
-from core.normalize_novelai import split_novelai_tags
-from core.preset_io import load_preset, save_preset
-from core.schema import Variable, VariableValue
-from core.tag_sets import remove_common_tags_from_values
-from core.value_conflicts import detect_value_conflicts, filter_value_conflicts
+from core.normalize import split_novelai_tags
+from core.preset import Variable, VariableValue, load_preset, save_preset
+from core.utils import remove_common_tags_from_values
+from core.match import detect_value_conflicts, filter_value_conflicts
 from gui.common import simple_input
 
 
@@ -57,7 +56,10 @@ class EditorTab:
 
         ttk.Label(
             parent,
-            text="설명: 변수=분류 기준, 값=변수 안의 항목, 태그 조합=값이 필요로 하는 태그 묶음",
+            text=(
+                "설명: 변수는 분류 기준, 값은 변수의 항목, "
+                "태그 조합은 값이 필요로 하는 태그 묶음"
+            ),
         ).pack(anchor="w", padx=10, pady=4)
 
         main = ttk.Frame(parent)
@@ -175,7 +177,7 @@ class EditorTab:
             name,
         )
         if not ok:
-            messagebox.showerror("검증", error)
+            messagebox.showerror("검증 오류", error)
             return
         logger.info("Preset name updated: %s", name)
 
@@ -206,7 +208,7 @@ class EditorTab:
             name,
         )
         if not ok:
-            messagebox.showerror("검증", error)
+            messagebox.showerror("검증 오류", error)
             return
         preset = self.state.preset
         filename = f"{preset.name or 'preset'}.json"
@@ -226,14 +228,14 @@ class EditorTab:
         logger.info("Preset saved: %s", path)
 
     def _add_variable(self) -> None:
-        name = simple_input(self.app.root, "변수 이름", "변수 이름을 입력하세요")
+        name = simple_input(self.app.root, "변수 이름", "변수 이름을 입력하세요.")
         if not name:
             return
         new_var = Variable(name=name, values=[])
         variables = list(self.state.preset.variables) + [new_var]
         ok, error = self.state.replace_preset(variables, self.state.preset.name)
         if not ok:
-            messagebox.showerror("검증", error)
+            messagebox.showerror("검증 오류", error)
             return
         self.selected_variable_index = len(variables) - 1
         self._refresh_variables()
@@ -250,7 +252,7 @@ class EditorTab:
         variables.pop(idx)
         ok, error = self.state.replace_preset(variables, self.state.preset.name)
         if not ok:
-            messagebox.showerror("검증", error)
+            messagebox.showerror("검증 오류", error)
             return
         self.selected_variable_index = None
         self.selected_value_index = None
@@ -271,7 +273,7 @@ class EditorTab:
         variables[idx] = updated
         ok, error = self.state.replace_preset(variables, self.state.preset.name)
         if not ok:
-            messagebox.showerror("검증", error)
+            messagebox.showerror("검증 오류", error)
             return
         self._refresh_variables()
         self.app.on_preset_changed()
@@ -281,20 +283,20 @@ class EditorTab:
         var = self._get_selected_variable()
         if var is None:
             return
-        name = simple_input(self.app.root, "값 이름", "값 이름을 입력하세요")
+        name = simple_input(self.app.root, "값 이름", "값 이름을 입력하세요.")
         if not name:
             return
         tags_input = simple_input(
             self.app.root,
             "값 태그",
-            "태그를 입력하세요 (쉼표로 구분)",
+            "태그를 입력하세요. (쉼표 구분)",
         )
         if not tags_input:
-            messagebox.showwarning("값", "태그는 필수입니다.")
+            messagebox.showwarning("값", "태그가 필요합니다.")
             return
         tags = split_novelai_tags(tags_input)
         if not tags:
-            messagebox.showwarning("값", "태그는 필수입니다.")
+            messagebox.showwarning("값", "태그가 필요합니다.")
             return
         values = list(var.values) + [VariableValue(name=name, tags=tags)]
         updated = Variable(name=var.name, values=values)
@@ -327,7 +329,7 @@ class EditorTab:
         raw_tags = self.value_tags_var.get()
         tags = split_novelai_tags(raw_tags)
         if not tags:
-            messagebox.showwarning("값", "태그는 필수입니다.")
+            messagebox.showwarning("값", "태그가 필요합니다.")
             return
         values = list(var.values)
         values[idx] = VariableValue(name=name, tags=tags)
@@ -364,7 +366,7 @@ class EditorTab:
             return
         filtered = [value for value in values if value.tags]
         if len(filtered) != len(values):
-            messagebox.showwarning("불러오기", "태그가 비어있는 값은 제외되었습니다.")
+            messagebox.showwarning("불러오기", "태그가 비어있는 값이 제외되었습니다.")
         if not filtered:
             messagebox.showerror("불러오기", "유효한 값이 없습니다. (태그 비어있음)")
             return
@@ -385,9 +387,9 @@ class EditorTab:
                 subset_samples.append(f"{merged[idx].name} <= {merged[other].name}")
 
             lines = [
-                "중복/부분집합 태그가 있어 충돌이 발생합니다.",
-                f"중복 쌍: {len(conflict_summary.duplicate_pairs)}개",
-                f"부분집합 쌍: {len(conflict_summary.subset_pairs)}개",
+                "중복/부분집합 태그가 있어 충돌이 발생했습니다.",
+                f"중복 수: {len(conflict_summary.duplicate_pairs)}개",
+                f"부분집합 수: {len(conflict_summary.subset_pairs)}개",
             ]
             if dup_samples:
                 lines.append("중복 예시: " + ", ".join(dup_samples))
@@ -405,7 +407,7 @@ class EditorTab:
                     f"충돌 항목 {len(conflict_summary.removed_indices)}개를 제외했습니다.",
                 )
             if not merged:
-                messagebox.showerror("불러오기", "남은 값이 없습니다.")
+                messagebox.showerror("불러오기", "모든 값이 제거되었습니다.")
                 return
 
         updated = Variable(name=var.name, values=merged)
@@ -442,8 +444,8 @@ class EditorTab:
                 )
             lines = [
                 "공통 태그 제외 후 중복/부분집합 태그가 있습니다.",
-                f"중복 쌍: {len(conflict_summary.duplicate_pairs)}개",
-                f"부분집합 쌍: {len(conflict_summary.subset_pairs)}개",
+                f"중복 수: {len(conflict_summary.duplicate_pairs)}개",
+                f"부분집합 수: {len(conflict_summary.subset_pairs)}개",
             ]
             if dup_samples:
                 lines.append("중복 예시: " + ", ".join(dup_samples))
@@ -459,13 +461,15 @@ class EditorTab:
                     f"충돌 항목 {len(conflict_summary.removed_indices)}개를 제외했습니다.",
                 )
             if not updated_values:
-                messagebox.showerror("공통 태그 제외", "남은 값이 없습니다.")
+                messagebox.showerror("공통 태그 제외", "모든 값이 제거되었습니다.")
                 return
 
         updated = Variable(name=var.name, values=updated_values)
         self._replace_variable(updated)
         self._refresh_values()
-        messagebox.showinfo("공통 태그 제외", f"공통 태그 {len(common_tags)}개를 제외했습니다.")
+        messagebox.showinfo(
+            "공통 태그 제외", f"공통 태그 {len(common_tags)}개를 제외했습니다."
+        )
 
     def _show_common_tags(self) -> None:
         var = self._get_selected_variable()
@@ -595,7 +599,7 @@ class EditorTab:
         variables[idx] = updated
         ok, error = self.state.replace_preset(variables, self.state.preset.name)
         if not ok:
-            messagebox.showerror("검증", error)
+            messagebox.showerror("검증 오류", error)
             return
         self.app.on_preset_changed()
 
@@ -620,7 +624,7 @@ class EditorTab:
         for value in var.values:
             new_name = transform(value.name)
             if not new_name:
-                messagebox.showerror("일괄 변경", "빈 이름이 생겨서 중단했습니다.")
+                messagebox.showerror("일괄 변경", "빈 이름이 생겨 중단했습니다.")
                 return
             updated_values.append(VariableValue(name=new_name, tags=value.tags))
 

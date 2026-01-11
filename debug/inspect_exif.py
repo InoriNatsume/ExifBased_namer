@@ -15,7 +15,7 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from core.extract import extract_payloads_from_image
-from core.normalize_novelai import merge_prompt_tags, normalize_novelai_payload
+from core.normalize import merge_prompt_tags, normalize_novelai_payload
 
 
 def _dedupe(tags: list[str]) -> list[str]:
