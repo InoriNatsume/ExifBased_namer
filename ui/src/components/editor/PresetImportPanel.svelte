@@ -10,7 +10,7 @@
 
   async function importPreset() {
     if (!variableName) {
-      alert("먼저 변수를 선택하세요.");
+      alert("대상 변수를 먼저 선택하세요.");
       return;
     }
     const path = await pickFile(["json"]);
@@ -23,7 +23,7 @@
 
 <div class="panel inner">
   <div class="section-title small">
-    <h3>SDSTUDIO/NAIS 템플릿 불러오기</h3>
+    <h3>SDSTUDIO/NAIS 프리셋 불러오기</h3>
   </div>
   <div class="muted">대상 변수: {variableName ?? "선택되지 않음"}</div>
   <div class="toggle-row">
@@ -38,7 +38,7 @@
   </div>
   <div class="row">
     <button class="primary" on:click={importPreset} disabled={!variableName}>
-      템플릿 불러오기
+      프리셋 불러오기
     </button>
   </div>
   <div class="muted">

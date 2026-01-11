@@ -10,11 +10,13 @@
     folder: string;
     tags: string;
     includeNegative: boolean;
+    thumbs: boolean;
   }) => void;
   export let onScan: (payload: {
     folder: string;
     includeNegative: boolean;
     incremental: boolean;
+    thumbs: boolean;
   }) => void;
   export let onCancel: (() => void) | null = null;
   export let disabled = false;
@@ -23,6 +25,7 @@
   let tags = "";
   let includeNegative = false;
   let incremental = true;
+  let thumbs = true;
   let localStatus = "";
   $: displayStatus = localStatus || status;
 
@@ -44,7 +47,7 @@
       return;
     }
     localStatus = "";
-    onSearch({ folder, tags, includeNegative });
+    onSearch({ folder, tags, includeNegative, thumbs });
   }
 
   function runScan() {
@@ -53,7 +56,7 @@
       return;
     }
     localStatus = "";
-    onScan({ folder, includeNegative, incremental });
+    onScan({ folder, includeNegative, incremental, thumbs });
   }
 </script>
 
@@ -79,6 +82,9 @@
     </label>
     <label>
       <input type="checkbox" bind:checked={incremental} /> 증분 스캔
+    </label>
+    <label>
+      <input type="checkbox" bind:checked={thumbs} /> 썸네일 캐시 사용
     </label>
   </div>
   <ProgressBar

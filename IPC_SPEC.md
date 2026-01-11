@@ -6,6 +6,7 @@
 - `type`: 메시지 유형
 - `op`: 작업 종류(`run` 메시지에서만 사용)
 - `payload`: 작업 입력(`run` 메시지에서만 사용)
+- `version`: 프로토콜 버전(옵션, 기본 1)
 - 환경 변수 `NAI_DB_PATH`로 DB 경로 지정(기본 `data/app.sqlite`)
 
 ## 요청 메시지
@@ -18,6 +19,7 @@
 - `type` = `run`
 - `op`: 작업 종류
 - `payload`: 작업 입력
+- `version`(int): 프로토콜 버전(옵션)
 
 ### cancel
 ```json
@@ -26,6 +28,7 @@
 필드
 - `id`(str): 취소할 작업 ID
 - `type` = `cancel`
+- `version`(int): 프로토콜 버전(옵션)
 
 ## 응답 메시지
 ### ack
@@ -40,8 +43,10 @@
 
 ### result
 ```json
-{"id":"job-1","type":"result","status":"OK","source":"...","target":"...","message":null}
+{"id":"job-1","type":"result","status":"OK","source":"...","target":"...","message":null,"preview":"..."}
 ```
+필드
+- `preview`(str): 썸네일 캐시 경로(옵션)
 
 ### done
 ```json
@@ -67,6 +72,12 @@ payload
   "folder": "C:\\images",
   "include_negative": false,
   "progress_step": 200,
+  "thumbs": true,
+  "thumb_size": 256,
+  "thumb_quality": 85,
+  "thumb_cache_dir": "C:\\cache\\thumbs",
+  "thumb_max_files": 5000,
+  "thumb_max_bytes": 2147483648,
   "commit_step": 200,
   "incremental": false,
   "workers": 6
@@ -79,6 +90,10 @@ payload
 - `commit_step`(int): DB 커밋 주기
 - `incremental`(bool): 변경된 파일만 재처리
 - `workers`(int): 병렬 워커 수(미지정 시 CPU 기반 자동)
+- `thumbs`(bool): 썸네일 캐시 사용 여부
+- `thumb_size`/`thumb_quality`: 썸네일 크기/품질(옵션)
+- `thumb_cache_dir`: 캐시 폴더(옵션, 미지정 시 `cache/thumbs`)
+- `thumb_max_files`/`thumb_max_bytes`: 캐시 정리 정책(옵션)
 
 ### search
 설명: DB 또는 폴더 기준 태그 AND 검색.
@@ -89,6 +104,12 @@ payload
   "folder": "C:\\images",
   "include_negative": false,
   "progress_step": 200,
+  "thumbs": true,
+  "thumb_size": 256,
+  "thumb_quality": 85,
+  "thumb_cache_dir": "C:\\cache\\thumbs",
+  "thumb_max_files": 5000,
+  "thumb_max_bytes": 2147483648,
   "limit": 2000,
   "offset": 0
 }
@@ -98,6 +119,7 @@ payload
 - `folder`(str): 지정 시 폴더 직접 검색
 - `include_negative`(bool): 네거티브 태그 포함 여부(폴더 검색 시)
 - `progress_step`(int): 진행도 업데이트 주기(폴더 검색 시)
+- `thumbs`(bool): 썸네일 캐시 사용 여부
 - `limit`/`offset`: DB 검색 페이징
 
 ### rename
@@ -112,6 +134,12 @@ payload
   "dry_run": true,
   "include_negative": false,
   "progress_step": 200,
+  "thumbs": true,
+  "thumb_size": 256,
+  "thumb_quality": 85,
+  "thumb_cache_dir": "C:\\cache\\thumbs",
+  "thumb_max_files": 5000,
+  "thumb_max_bytes": 2147483648,
   "resume_mode": false,
   "resume_path": "C:\\images\\.nai_resume_rename.txt",
   "checkpoint_step": 200,
@@ -131,6 +159,7 @@ payload
 - `resume_mode`(bool): 재개 모드(기존 체크포인트 읽기)
 - `resume_path`(str): 체크포인트 파일 경로(미지정 시 기본 경로)
 - `checkpoint_step`(int): 체크포인트 기록 플러시 주기
+- `thumbs`(bool): 썸네일 캐시 사용 여부
 - `variables`(list): 변수/값/태그 목록
 - `variable_specs`(list): 변수 스펙(있으면 우선 사용)
 
@@ -152,6 +181,12 @@ payload
   "dry_run": true,
   "include_negative": false,
   "progress_step": 200,
+  "thumbs": true,
+  "thumb_size": 256,
+  "thumb_quality": 85,
+  "thumb_cache_dir": "C:\\cache\\thumbs",
+  "thumb_max_files": 5000,
+  "thumb_max_bytes": 2147483648,
   "resume_mode": false,
   "resume_path": "C:\\images\\.nai_resume_move.txt",
   "checkpoint_step": 200,

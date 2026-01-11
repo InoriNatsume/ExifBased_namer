@@ -5,6 +5,7 @@ from core.utils import iter_image_files
 
 from ..job_manager import JobContext
 from .common import load_tags
+from .thumbs import apply_thumb_policy, ensure_preview
 
 
 def handle_search(ctx: JobContext, conn) -> None:
@@ -42,12 +43,14 @@ def handle_search(ctx: JobContext, conn) -> None:
                 tags = load_tags(conn, path, include_negative)
                 if match_tag_and(required_tags, tags):
                     matches += 1
+                    preview = ensure_preview(ctx.payload, path)
                     ctx.emit(
                         {
                             "id": ctx.job_id,
                             "type": "result",
                             "status": "OK",
                             "source": path,
+                            "preview": preview,
                         }
                     )
             except Exception as exc:
@@ -81,9 +84,20 @@ def handle_search(ctx: JobContext, conn) -> None:
                 "matches": matches,
             }
         )
+        apply_thumb_policy(ctx.payload)
         return
 
     results = search_by_tags(conn, required_tags, limit=limit, offset=offset)
     for path in results:
-        ctx.emit({"id": ctx.job_id, "type": "result", "status": "OK", "source": path})
+        preview = ensure_preview(ctx.payload, path)
+        ctx.emit(
+            {
+                "id": ctx.job_id,
+                "type": "result",
+                "status": "OK",
+                "source": path,
+                "preview": preview,
+            }
+        )
     ctx.emit({"id": ctx.job_id, "type": "done", "count": len(results)})
+    apply_thumb_policy(ctx.payload)

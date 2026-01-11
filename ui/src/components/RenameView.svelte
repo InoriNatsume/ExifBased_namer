@@ -16,6 +16,7 @@
     dryRun: boolean;
     includeNegative: boolean;
     resumeMode: boolean;
+    thumbs: boolean;
   }) => void;
   export let onClearResume: ((folder: string) => void) | null = null;
   export let onCancel: (() => void) | null = null;
@@ -27,6 +28,7 @@
   let dryRun = true;
   let includeNegative = false;
   let resumeMode = false;
+  let thumbs = true;
   let localStatus = "";
   let order: string[] = [];
   let selectedVar = "";
@@ -104,6 +106,7 @@
       dryRun,
       includeNegative,
       resumeMode,
+      thumbs,
     });
   }
 
@@ -188,6 +191,9 @@
     </label>
     <label>
       <input type="checkbox" bind:checked={resumeMode} /> 재개 모드
+    </label>
+    <label>
+      <input type="checkbox" bind:checked={thumbs} /> 썸네일 캐시 사용
     </label>
   </div>
   <div class="row compact">

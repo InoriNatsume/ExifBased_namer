@@ -7,6 +7,7 @@ from core.utils import ensure_unique_name, iter_image_files, render_template, sa
 
 from ..job_manager import JobContext
 from .common import load_tags, load_variable_specs
+from .thumbs import apply_thumb_policy, ensure_preview
 
 
 def handle_move(ctx: JobContext, conn) -> None:
@@ -135,6 +136,7 @@ def handle_move(ctx: JobContext, conn) -> None:
 
             if status != "OK":
                 processed += 1
+                preview = ensure_preview(ctx.payload, path)
                 ctx.emit(
                     {
                         "id": ctx.job_id,
@@ -143,6 +145,7 @@ def handle_move(ctx: JobContext, conn) -> None:
                         "source": path,
                         "target": None,
                         "message": None,
+                        "preview": preview,
                     }
                 )
                 if resume_file:
@@ -249,6 +252,8 @@ def handle_move(ctx: JobContext, conn) -> None:
                     continue
 
             processed += 1
+            preview_source = path if dry_run else target
+            preview = ensure_preview(ctx.payload, preview_source)
             ctx.emit(
                 {
                     "id": ctx.job_id,
@@ -257,6 +262,7 @@ def handle_move(ctx: JobContext, conn) -> None:
                     "source": path,
                     "target": target,
                     "message": None,
+                    "preview": preview,
                 }
             )
             if resume_file:
@@ -292,3 +298,4 @@ def handle_move(ctx: JobContext, conn) -> None:
             "skipped": skipped,
         }
     )
+    apply_thumb_policy(ctx.payload)

@@ -143,7 +143,13 @@
     }));
   }
 
-  function addResult(status: ResultStatus, source?: string, target?: string, message?: string) {
+  function addResult(
+    status: ResultStatus,
+    source?: string,
+    target?: string,
+    message?: string,
+    preview?: string
+  ) {
     let text = status;
     if (source && target) {
       text = `${status} | ${source} -> ${target}`;
@@ -159,7 +165,7 @@
         text,
         source,
         target,
-        preview: target || source,
+        preview: preview || target || source,
       };
       return [record, ...items].slice(0, 2000);
     });
@@ -225,7 +231,13 @@
 
     if (message.type === "result") {
       const resultStatus = (message.status ?? "OK") as ResultStatus;
-      addResult(resultStatus, message.source, message.target, message.message);
+      addResult(
+        resultStatus,
+        message.source,
+        message.target,
+        message.message,
+        message.preview
+      );
       jobStore.update((state) => {
         const stats = { ...state.stats };
         if (resultStatus === "OK") stats.ok += 1;
@@ -385,12 +397,18 @@
     }
   }
 
-  function runSearch(payload: { folder: string; tags: string; includeNegative: boolean }) {
+  function runSearch(payload: {
+    folder: string;
+    tags: string;
+    includeNegative: boolean;
+    thumbs: boolean;
+  }) {
     runJob("search", {
       folder: payload.folder,
       tags: payload.tags,
       include_negative: payload.includeNegative,
       progress_step: 200,
+      thumbs: payload.thumbs,
     });
   }
 
@@ -398,6 +416,7 @@
     folder: string;
     includeNegative: boolean;
     incremental: boolean;
+    thumbs: boolean;
   }) {
     runJob("scan", {
       folder: payload.folder,
@@ -405,6 +424,7 @@
       incremental: payload.incremental,
       progress_step: 200,
       commit_step: 200,
+      thumbs: payload.thumbs,
     });
   }
 
@@ -416,6 +436,7 @@
     dryRun: boolean;
     includeNegative: boolean;
     resumeMode: boolean;
+    thumbs: boolean;
   }) {
     const template = get(templateStore);
     if (template.variables.length === 0) {
@@ -433,6 +454,7 @@
       progress_step: 200,
       resume_mode: payload.resumeMode,
       checkpoint_step: 200,
+      thumbs: payload.thumbs,
       variables: template.variables,
     });
   }
@@ -445,6 +467,7 @@
     dryRun: boolean;
     includeNegative: boolean;
     resumeMode: boolean;
+    thumbs: boolean;
   }) {
     const template = get(templateStore);
     if (template.variables.length === 0) {
@@ -462,6 +485,7 @@
       progress_step: 200,
       resume_mode: payload.resumeMode,
       checkpoint_step: 200,
+      thumbs: payload.thumbs,
       variables: template.variables,
     });
   }

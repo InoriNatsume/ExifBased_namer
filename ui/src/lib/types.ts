@@ -1,36 +1,40 @@
-﻿export type IpcRunRequest = {
+type IpcBase = {
+  id?: string;
+  version?: number;
+};
+
+export type IpcRunRequest = {
   id: string;
   type: "run";
   op: string;
   payload: Record<string, unknown>;
+  version?: number;
 };
 
 export type IpcCancelRequest = {
   id: string;
   type: "cancel";
+  version?: number;
 };
 
-
 export type IpcMessage =
-  | { id?: string; type: "ack"; op?: string }
-  | {
-      id?: string;
+  | (IpcBase & { type: "ack"; op?: string })
+  | (IpcBase & {
       type: "progress";
       processed?: number;
       total?: number;
       errors?: number;
       skipped?: number;
-    }
-  | {
-      id?: string;
+    })
+  | (IpcBase & {
       type: "result";
       status?: string;
       source?: string;
       target?: string;
       message?: string;
-    }
-  | {
-      id?: string;
+      preview?: string;
+    })
+  | (IpcBase & {
       type: "done";
       processed?: number;
       errors?: number;
@@ -39,6 +43,6 @@ export type IpcMessage =
       cancelled?: boolean;
       payload?: unknown;
       stats?: Record<string, unknown>;
-    }
-  | { id?: string; type: "log"; message?: string }
-  | { id?: string; type: "error"; message?: string };
+    })
+  | (IpcBase & { type: "log"; message?: string })
+  | (IpcBase & { type: "error"; message?: string });

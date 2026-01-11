@@ -7,6 +7,7 @@ from core.utils import ensure_unique_name, iter_image_files, render_template, sa
 
 from ..job_manager import JobContext
 from .common import load_tags, load_variable_specs
+from .thumbs import apply_thumb_policy, ensure_preview
 
 
 def handle_rename(ctx: JobContext, conn) -> None:
@@ -131,18 +132,20 @@ def handle_rename(ctx: JobContext, conn) -> None:
                     break
                 values_map[key] = match.get("values", [""])[0]
 
-            if status != "OK":
-                processed += 1
-                ctx.emit(
-                    {
-                        "id": ctx.job_id,
-                        "type": "result",
-                        "status": status,
-                        "source": path,
-                        "target": None,
-                        "message": None,
-                    }
-                )
+        if status != "OK":
+            processed += 1
+            preview = ensure_preview(ctx.payload, path)
+            ctx.emit(
+                {
+                    "id": ctx.job_id,
+                    "type": "result",
+                    "status": status,
+                    "source": path,
+                    "target": None,
+                    "message": None,
+                    "preview": preview,
+                }
+            )
                 if resume_file:
                     resume_file.write(f"{path}\n")
                     resume_written += 1
@@ -174,21 +177,21 @@ def handle_rename(ctx: JobContext, conn) -> None:
             ext = Path(path).suffix
             new_name = ensure_unique_name(Path(path).parent, base_name, ext, reserved)
             target = str(Path(path).with_name(new_name))
-            if not dry_run and target != path:
-                try:
-                    os.rename(path, target)
+        if not dry_run and target != path:
+            try:
+                os.rename(path, target)
                 except Exception as exc:
                     errors += 1
                     processed += 1
-                    ctx.emit(
-                        {
-                            "id": ctx.job_id,
-                            "type": "result",
-                            "status": "ERROR",
-                            "source": path,
-                            "message": str(exc),
-                        }
-                    )
+                ctx.emit(
+                    {
+                        "id": ctx.job_id,
+                        "type": "result",
+                        "status": "ERROR",
+                        "source": path,
+                        "message": str(exc),
+                    }
+                )
                     if resume_file:
                         resume_file.write(f"{path}\n")
                         resume_written += 1
@@ -205,19 +208,22 @@ def handle_rename(ctx: JobContext, conn) -> None:
                                 "skipped": skipped,
                             }
                         )
-                    continue
+                continue
 
-            processed += 1
-            ctx.emit(
-                {
-                    "id": ctx.job_id,
-                    "type": "result",
-                    "status": "OK",
-                    "source": path,
-                    "target": target,
-                    "message": None,
-                }
-            )
+        processed += 1
+        preview_source = path if dry_run else target
+        preview = ensure_preview(ctx.payload, preview_source)
+        ctx.emit(
+            {
+                "id": ctx.job_id,
+                "type": "result",
+                "status": "OK",
+                "source": path,
+                "target": target,
+                "message": None,
+                "preview": preview,
+            }
+        )
             if resume_file:
                 final_path = path if dry_run else target
                 resume_file.write(f"{final_path}\n")
@@ -251,3 +257,4 @@ def handle_rename(ctx: JobContext, conn) -> None:
             "skipped": skipped,
         }
     )
+    apply_thumb_policy(ctx.payload)
