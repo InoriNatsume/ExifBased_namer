@@ -34,3 +34,6 @@
 - `debug/ipc_echo.py`: IPC 에코 테스트
 - `debug/db_smoke.py`: DB 스키마 확인
 - `debug/thumb_cache.py`: 썸네일 캐시 테스트
+- `debug/perf_extract.py`: EXIF 추출/정규화 성능 측정
+- `debug/perf_db.py`: DB 검색 성능 측정
+  - 옵션: `--repeat`, `--explain`, `--selectivity`

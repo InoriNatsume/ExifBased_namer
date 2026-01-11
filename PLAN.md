@@ -118,7 +118,7 @@
 ## 3-3. 선택 보강(확장 옵션)
 - 태그 출처 분리 저장(positive/negative/char)
 - 변수별 매칭 결과 캐시(DB)
-- 대규모 스캔 성능 측정 지표 기록
+- 대규모 스캔 성능 측정 지표 기록 [x]
 
 ## 4. 패키징/배포
 - Python sidecar 빌드(PyInstaller 등)
@@ -159,6 +159,8 @@
 - `debug/ipc_echo.py`: IPC 메시지 송수신 테스트(에코 서버) [x]
 - `debug/db_smoke.py`: DB 스키마 생성/간단 쿼리 검증 [x]
 - `debug/thumb_cache.py`: 썸네일 캐시 생성/정리 테스트 [x]
+- `debug/perf_extract.py`: EXIF 추출/정규화 성능 측정 [x]
+- `debug/perf_db.py`: DB 검색 성능 측정 [x]
 
 ## 7-2. IPC/DB 관련 테스트 아이디어
 - IPC 메시지 파서(부분 라인/깨진 JSON) 복원 테스트
