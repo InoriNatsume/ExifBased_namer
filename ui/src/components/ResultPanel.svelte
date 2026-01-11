@@ -33,7 +33,6 @@
 <section class="panel">
   <div class="section-title">
     <h2>{title}</h2>
-    <span class="badge">미리보기 예정</span>
   </div>
   <div class="filter-row">
     {#each statuses as status}
