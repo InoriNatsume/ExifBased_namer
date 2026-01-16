@@ -34,3 +34,13 @@ ui/.svelte-kit/
 ui/src-tauri/gen/
 ui/.vite/
 ui/src-tauri/.tauri/
+
+# PyInstaller build artifacts
+build/
+dist/
+*.spec.bak
+
+# viewer-ui build
+viewer-ui/node_modules/
+viewer-ui/dist/
+viewer-ui/.vite/
