@@ -269,11 +269,11 @@ def handle_move(ctx: JobContext, conn) -> None:
                 {
                     "id": ctx.job_id,
                     "type": "result",
-                    "status": "OK",
+                    "status": overall_status,  # OK 또는 PARTIAL
                     "source": path,
                     "target": target,
                     "folder": classified_folder,  # 분류된 폴더 경로 (탐색용)
-                    "message": None,
+                    "message": f"부분 분류 ({len(folder_parts)}/{len(var_list)}단계)" if overall_status == "PARTIAL" else None,
                     "preview": preview,
                 }
             )

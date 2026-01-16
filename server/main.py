@@ -13,6 +13,8 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -83,18 +85,6 @@ active_jobs: dict[str, asyncio.Queue] = {}
 cancel_flags: set[str] = set()
 
 
-app = FastAPI(title="NAI Tag Classifier")
-
-# CORS for development
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-
 # Database connection (thread-local)
 _db_path = os.environ.get("NAI_DB_PATH") or "data/app.sqlite"
 _thread_local = threading.local()
@@ -131,10 +121,23 @@ class JobResponse(BaseModel):
 _main_loop: asyncio.AbstractEventLoop | None = None
 
 
-@app.on_event("startup")
-async def startup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager for startup/shutdown events."""
     global _main_loop
     _main_loop = asyncio.get_event_loop()
+    yield
+    # Cleanup on shutdown (if needed)
+
+
+app = FastAPI(title="NAI Tag Classifier", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.post("/api/job")

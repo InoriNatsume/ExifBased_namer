@@ -2,9 +2,40 @@
 
 ## 구조 개요
 - `core/`: 태그 추출/정규화/매칭/캐시 등 순수 로직
-- `sidecar/`: IPC 서버, 작업 핸들러
-- `ui/`: Svelte/Tauri UI
+- `server/`: FastAPI 서버 (HTTP/WebSocket)
+- `sidecar/`: 작업 핸들러 (jobs.py, handlers/)
+- `viewer-ui/`: Svelte 프론트엔드
+- `ui/`: Tauri UI (레거시)
 - `debug/`: 수동 디버깅 스크립트
+
+## 빌드 및 실행
+
+### 개발 모드
+```powershell
+# 1. 가상환경 활성화
+.\venv\Scripts\Activate.ps1
+
+# 2. 서버 실행
+python -m server.main
+
+# 3. 브라우저에서 열기
+# http://localhost:8000
+```
+
+### 프로덕션 빌드
+```powershell
+# PowerShell 빌드 스크립트
+.\build.ps1
+
+# 또는 npm 빌드 건너뛰기
+.\build.ps1 -SkipNpm
+
+# 결과: dist/nai-classifier-server.exe (32.5MB)
+```
+
+### 빌드 파일
+- `build.spec`: PyInstaller 설정
+- `build.ps1`: Windows 빌드 스크립트
 
 ## IPC
 - JSON Lines 기반

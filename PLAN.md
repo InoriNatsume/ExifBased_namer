@@ -4,6 +4,15 @@
 - 현재 Tkinter UI는 유지(프로토타입/백업).
 - 코어 로직은 Python에 유지하고 UI와 분리 유지.
 
+## 0-1. 아키텍처 전환 (2026-01)
+- Tauri IPC → HTTP/WebSocket 전환 [x]
+  - FastAPI 서버 (`server/main.py`) 구현 [x]
+  - WebSocket 실시간 진행률/결과 스트리밍 [x]
+  - viewer-ui (Svelte) 새 프론트엔드 [x]
+- SQLite 스레드 안전성 [x]
+  - 워커 스레드별 DB 연결 생성 [x]
+  - `create_new_db_connection()` 함수 추가 [x]
+
 ## 1. IPC 설계 (JSON Lines)
 - 메시지 스키마 정의 [x]
   - 요청: {id, type:"run", op, payload}
@@ -79,10 +88,19 @@
 - 결과 목록 + 미리보기 + 필터 [x]
 - 진행도 표시/로그 뷰어 [x]
 - IPC 연결 (spawn sidecar + 메시지 처리) [x]
-- 사용자 친화 UX [ ]
+- 사용자 친화 UX [x]
   - 작업 흐름 가이드(툴팁/도움말) [x]
   - 오류/충돌 상황 안내 강화 [x]
   - 대량 처리 중단/재시작 UX [x]
+
+## 3-0. viewer-ui (새 프론트엔드, 2026-01)
+- FastAPI + Svelte 웹 UI [x]
+- 계층별 폴더 분류 (`variable_tree`) [x]
+- 폴더 구조 썸네일 그리드 UI [x]
+- 한글 이름순 정렬 [x]
+- 디버그 로그 분리 (`--debug` 옵션) [x]
+- 부분 분류 로직 (1층 OK → 1층 폴더로 이동) [x] (PARTIAL 상태)
+- DeprecationWarning 수정 (lifespan handler) [x]
 
 ## 3-1. Svelte UI 구성안(초안)
 - 화면 레이아웃
@@ -121,17 +139,18 @@
 - 변수별 매칭 결과 캐시(DB)
 - 대규모 스캔 성능 측정 지표 기록 [x]
 
-## 4. 패키징/배포
-- Python sidecar 빌드(PyInstaller 등)
-- Tauri 번들에 sidecar 포함
-- Windows 경로/권한 테스트
-- 로그/문제 파일 위치 정리
+## 4. 패키징/배포 [~]
+- Python sidecar 빌드(PyInstaller 등) [x] (build.spec)
+- Tauri 번들에 sidecar 포함 [-] (FastAPI로 대체)
+- FastAPI 단독 exe 빌드 [x] (build.ps1, 32.5MB)
+- Windows 경로/권한 테스트 [ ]
+- 로그/문제 파일 위치 정리 [ ]
 
-## 5. 성능/안정성
-- 대량 파일(10만+) 스트레스 테스트
-- 메모리 사용/큐 적체 점검
-- 취소/중단 시 안전 종료
-- 충돌 파일명(@@@) 처리 확인
+## 5. 성능/안정성 [ ]
+- 대량 파일(10만+) 스트레스 테스트 [ ]
+- 메모리 사용/큐 적체 점검 [ ]
+- 취소/중단 시 안전 종료 [x]
+- 충돌 파일명(@@@) 처리 확인 [x]
 
 ## 5-1. 작업 제어(중단/일시정지/재개) [ ]
 - 1차: cancel 버튼(UI)로 즉시 중단 처리 [x]

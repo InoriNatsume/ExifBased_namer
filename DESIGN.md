@@ -128,8 +128,21 @@
 - 문제 로그 파일 출력
 - 검색/파일명 변경/폴더 분류는 sidecar IPC를 통해 실행
 
-## 향후 UI (Tauri + React/Svelte)
-권장: Tauri + Python sidecar + JSON Lines IPC
+## 현재 UI (FastAPI + Svelte, 2026-01 기준)
+- **아키텍처**: FastAPI 서버 + Svelte 프론트엔드
+- **통신**: HTTP REST + WebSocket (실시간 스트리밍)
+- **파일**: `server/main.py` (FastAPI), `viewer-ui/` (Svelte)
+- **빌드**: PyInstaller로 단일 exe (32.5MB)
+- **실행**: `nai-classifier-server.exe` → http://localhost:8000
+
+### 주요 기능
+- 계층별 폴더 분류 (`variable_tree`)
+- 폴더 구조 썸네일 그리드 UI
+- 부분 분류 (PARTIAL 상태)
+- 실시간 진행률/결과 WebSocket 스트리밍
+
+## 이전 UI (Tauri + React/Svelte)
+권장: Tauri + Python sidecar + JSON Lines IPC (현재 미사용)
 - 포트 없이 로컬 IPC
 - Python 코어 그대로 사용
 - UI는 웹 스택으로 교체
