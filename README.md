@@ -66,7 +66,7 @@ docs/           # 문서
 
 - [DESIGN.md](DESIGN.md) - 설계 문서
 - [PLAN.md](PLAN.md) - 개발 계획
-- [IPC_SPEC.md](IPC_SPEC.md) - IPC 메시지 스펙
+- [API_SPEC.md](API_SPEC.md) - API 메시지 스펙
 - [docs/DEV_GUIDE.md](docs/DEV_GUIDE.md) - 개발자 가이드
 - [docs/USER_GUIDE.md](docs/USER_GUIDE.md) - 사용자 가이드
 - [docs/STRUCTURE.md](docs/STRUCTURE.md) - 폴더 구조

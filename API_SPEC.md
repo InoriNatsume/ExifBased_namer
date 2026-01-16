@@ -1,49 +1,67 @@
-# IPC 메시지 스펙 (초안)
+# API 스펙
+
+## 아키텍처
+- **서버**: FastAPI (Python)
+- **통신**: HTTP REST + WebSocket
+- **포트**: 8000 (기본)
+
+## 엔드포인트
+
+### 작업 생성
+```
+POST /api/job
+Content-Type: application/json
+
+{
+  "op": "scan",
+  "payload": {...}
+}
+```
+응답:
+```json
+{"job_id": "scan-a1b2c3d4", "status": "created"}
+```
+
+### 작업 진행률/결과 (WebSocket)
+```
+WS /api/job/{job_id}/ws
+```
+서버에서 JSON 메시지 스트리밍:
+- `progress`: 진행률 업데이트
+- `result`: 개별 항목 결과
+- `done`: 작업 완료
+- `error`: 오류 발생
+
+### 작업 취소
+```
+POST /api/job/{job_id}/cancel
+```
+
+### 썸네일
+```
+GET /api/thumb?path={encoded_path}
+```
+
+### DB 통계
+```
+GET /api/db/stats
+```
 
 ## 공통 규칙
-- JSON Lines: 한 줄에 JSON 1개
-- `id`: 작업 ID
-- `type`: 메시지 유형
-- `op`: 작업 종류(`run` 메시지에서만 사용)
-- `payload`: 작업 입력(`run` 메시지에서만 사용)
-- `version`: 프로토콜 버전(옵션, 기본 1)
-- 환경 변수 `NAI_DB_PATH`로 DB 경로 지정(기본 `data/app.sqlite`)
-
-## 요청 메시지
-### run
-```json
-{"id":"job-1","type":"run","op":"scan","payload":{...}}
-```
-필드
-- `id`(str): 작업 ID
-- `type` = `run`
 - `op`: 작업 종류
 - `payload`: 작업 입력
-- `version`(int): 프로토콜 버전(옵션)
+- 환경 변수 `NAI_DB_PATH`로 DB 경로 지정(기본 `data/app.sqlite`)
 
-### cancel
-```json
-{"id":"job-1","type":"cancel"}
-```
-필드
-- `id`(str): 취소할 작업 ID
-- `type` = `cancel`
-- `version`(int): 프로토콜 버전(옵션)
-
-## 응답 메시지
-### ack
-```json
-{"id":"job-1","type":"ack","op":"scan"}
-```
+## WebSocket 메시지
 
 ### progress
 ```json
-{"id":"job-1","type":"progress","processed":1200,"total":50000,"errors":3,"skipped":200}
+{"type":"progress","processed":1200,"total":50000,"errors":3,"skipped":200}
 ```
 
 ### result
 ```json
-{"id":"job-1","type":"result","status":"OK","source":"...","target":"...","message":null,"preview":"..."}
+{"type":"result","status":"OK","source":"...","target":"...","message":null,"preview":"..."}
 ```
 필드
 - `preview`(str): 썸네일 캐시 경로(옵션)

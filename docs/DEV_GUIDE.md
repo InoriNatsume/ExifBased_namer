@@ -37,10 +37,9 @@ python -m server.main
 - `build.spec`: PyInstaller 설정
 - `build.ps1`: Windows 빌드 스크립트
 
-## IPC
-- JSON Lines 기반
-- 문서: `IPC_SPEC.md`
-- 프로토콜 버전: `version` 필드(기본 1)
+## API
+- HTTP REST + WebSocket 기반
+- 문서: `API_SPEC.md`
 
 ## 썸네일 캐시
 - 기본 경로: `cache/thumbs`
