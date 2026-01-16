@@ -1,5 +1,7 @@
 # NAI Tag Classifier
 
+[![Tests](https://github.com/InoriNatsume/ExifBased_namer/actions/workflows/tests.yml/badge.svg)](https://github.com/InoriNatsume/ExifBased_namer/actions/workflows/tests.yml)
+
 NAI 이미지의 EXIF/stealth 태그를 기반으로 검색, 파일명 변경, 폴더 분류를 수행하는 도구입니다.
 
 ## 기능
@@ -67,6 +69,19 @@ docs/           # 문서
 - [IPC_SPEC.md](IPC_SPEC.md) - IPC 메시지 스펙
 - [docs/DEV_GUIDE.md](docs/DEV_GUIDE.md) - 개발자 가이드
 - [docs/USER_GUIDE.md](docs/USER_GUIDE.md) - 사용자 가이드
+- [docs/STRUCTURE.md](docs/STRUCTURE.md) - 폴더 구조
+
+## 테스트
+
+```powershell
+# pytest (권장)
+pytest tests/ -v
+
+# unittest
+python tests/run_tests.py
+```
+
+26개 테스트 (DB, 태그 추출/정규화/매칭, 스키마 검증 등)
 
 ## 기술 스택
 

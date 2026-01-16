@@ -170,12 +170,13 @@ payload
 - 중단/강제 종료 시 파일 유지
 
 ### move
-설명: 단일 변수 값 기준 폴더 분류.
+설명: 변수 기준 폴더 분류. 단일 변수 또는 계층별 분류 지원.
 payload
 ```json
 {
   "folder": "C:\\images",
   "variable_name": "emotion",
+  "variable_tree": ["character", "emotion"],
   "template": "[value]",
   "target_root": "C:\\target",
   "dry_run": true,
@@ -192,6 +193,15 @@ payload
   "checkpoint_step": 200,
   "variables": []
 }
+```
+필드
+- `variable_name`(str): 단일 변수 분류 시 사용
+- `variable_tree`(list): 계층별 분류 시 변수 순서 (예: `["character", "emotion"]`)
+  - 지정 시 `variable_name` 무시
+  - 1층만 매칭되면 PARTIAL 상태로 1층 폴더에 분류
+- `template`(str): 폴더명 형식 (`[value]` 등)
+- `target_root`(str): 대상 루트 폴더
+- `dry_run`(bool): 실제 이동 없이 결과만 계산
 ```
 
 ### strip_suffix

@@ -175,8 +175,10 @@ Svelte
 - 공통 태그 제거
 
 ## 테스트 구성
-- 자동 테스트: tests/ 아래 unittest (pytest 이식 가능 구조)
-- 수동 디버깅: debug/inspect_exif.py (자동 테스트에 포함하지 않음)
+- 자동 테스트: tests/ 아래 pytest/unittest 호환 (26개 테스트)
+- 공유 fixtures: `tests/conftest.py` (memory_db 등)
+- CI: GitHub Actions (Python 3.11/3.12/3.13, Windows/Ubuntu)
+- 수동 디버깅: debug/ 스크립트 (자동 테스트에 포함하지 않음)
 
 ## 테스트 포인트 ↔ 테스트 파일 매핑
 - Comment 파싱: `tests/test_extract.py`

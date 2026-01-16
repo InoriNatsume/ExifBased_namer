@@ -60,6 +60,30 @@ python -m server.main
 - 폴더 분류: `.nai_resume_move.txt`
 - 작업 완료 시 자동 삭제, 중단 시 유지
 
+## 테스트 실행
+
+### pytest (권장)
+```powershell
+# 전체 테스트
+pytest tests/ -v
+
+# 특정 파일
+pytest tests/test_db.py -v
+
+# 특정 테스트
+pytest tests/test_match.py::MatchTests::test_match_conflict -v
+```
+
+### unittest (대체)
+```powershell
+python tests/run_tests.py
+```
+
+### GitHub Actions
+- Python 3.11/3.12/3.13 매트릭스
+- Windows + Ubuntu 테스트
+- PR/Push 시 자동 실행
+
 ## 디버깅 도구
 - `debug/inspect_exif.py`: EXIF/stealth 확인
 - `debug/ipc_echo.py`: IPC 에코 테스트
