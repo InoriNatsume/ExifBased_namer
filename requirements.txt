@@ -2,4 +2,6 @@ pydantic
 pillow
 numpy
 fastapi
-uvicorn[standard]pyinstaller
+uvicorn[standard]
+pyinstaller
+pytest
