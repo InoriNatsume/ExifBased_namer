@@ -24,6 +24,8 @@ cache/
 data/
 node_modules/
 
+참조용/
+
 # UI build artifacts
 ui/node_modules/
 ui/src-tauri/target/

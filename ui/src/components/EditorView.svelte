@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { ConflictSummary, Preset, PresetValue } from "../lib/preset";
+  import type { PresetInfo, TemplateInfo } from "../lib/dbModels";
   import {
     detectConflicts,
     normalizeTagText,
@@ -11,7 +12,9 @@
   import PresetImportPanel, {
     type ImportMode,
   } from "./editor/PresetImportPanel.svelte";
+  import PresetDbPanel from "./editor/PresetDbPanel.svelte";
   import TagEditor from "./editor/TagEditor.svelte";
+  import TemplateDbPanel from "./editor/TemplateDbPanel.svelte";
   import ValueList, { type BulkAction } from "./editor/ValueList.svelte";
   import VariableList from "./editor/VariableList.svelte";
 
@@ -35,6 +38,28 @@
     mode: ImportMode,
     variableName: string
   ) => void;
+  export let templateDbItems: TemplateInfo[] = [];
+  export let templateDbSelected: string | null = null;
+  export let templateDbStatus = "";
+  export let onTemplateDbRefresh: () => void;
+  export let onTemplateDbLoad: (name: string) => void;
+  export let onTemplateDbSave: () => void;
+  export let onTemplateDbDelete: (name: string) => void;
+  export let presetDbItems: PresetInfo[] = [];
+  export let presetDbStatus = "";
+  export let onPresetDbRefresh: (variableName: string | null) => void;
+  export let onPresetDbApply: (
+    presetId: number,
+    mode: ImportMode,
+    variableName: string
+  ) => void;
+  export let onPresetDbSave: (payload: {
+    name: string;
+    sourceKind: string;
+    variableName: string;
+    values: PresetValue[];
+  }) => void;
+  export let onPresetDbDelete: (presetId: number) => void;
   export let buildStatus = "";
   export let buildStats: Record<string, unknown> | null = null;
   export let buildCommonTags: string[] = [];
@@ -76,6 +101,9 @@
     selectedValueIndex = null;
     lastSelectedValueIndex = null;
     valueTags = "";
+    if (selectedVariableIndex === null) {
+      onPresetDbRefresh(null);
+    }
   }
 
   $: if (selectedValueIndex !== lastSelectedValueIndex) {
@@ -105,6 +133,7 @@
     preset = { ...preset, variables: vars };
     onChange(preset);
     selectedVariableIndex = vars.length - 1;
+    onPresetDbRefresh(name);
   }
 
   function deleteVariable() {
@@ -120,6 +149,7 @@
     valueTags = "";
     variableCommonTags = [];
     conflictSummary = null;
+    onPresetDbRefresh(null);
   }
 
   function applyVariableNameAt(index: number, name: string) {
@@ -213,6 +243,8 @@
     selectedValueIndex = null;
     variableCommonTags = [];
     conflictSummary = null;
+    const variable = preset.variables[index];
+    onPresetDbRefresh(variable ? variable.name : null);
   }
 
   function selectValue(index: number) {
@@ -321,6 +353,16 @@
     onClear={onPresetClear}
   />
 
+  <TemplateDbPanel
+    items={templateDbItems}
+    selectedName={templateDbSelected}
+    status={templateDbStatus}
+    onRefresh={onTemplateDbRefresh}
+    onLoad={onTemplateDbLoad}
+    onSave={onTemplateDbSave}
+    onDelete={onTemplateDbDelete}
+  />
+
   <div class="editor-grid">
     <VariableList
       variables={preset.variables}
@@ -344,6 +386,17 @@
   <PresetImportPanel
     variableName={selectedVariable?.name ?? null}
     onImport={importPreset}
+  />
+
+  <PresetDbPanel
+    variableName={selectedVariable?.name ?? null}
+    values={selectedVariable ? selectedVariable.values : []}
+    presets={presetDbItems}
+    status={presetDbStatus}
+    onRefresh={onPresetDbRefresh}
+    onApply={onPresetDbApply}
+    onSave={onPresetDbSave}
+    onDelete={onPresetDbDelete}
   />
 
   <TagEditor

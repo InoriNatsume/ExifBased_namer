@@ -1,3 +1,4 @@
+import logging
 import os
 from pathlib import Path
 from typing import TextIO
@@ -8,6 +9,8 @@ from core.utils import ensure_unique_name, iter_image_files, render_template, sa
 from ..job_manager import JobContext
 from .common import load_tags, load_variable_specs
 from .thumbs import apply_thumb_policy, ensure_preview
+
+logger = logging.getLogger(__name__)
 
 
 def handle_rename(ctx: JobContext, conn) -> None:
@@ -35,6 +38,9 @@ def handle_rename(ctx: JobContext, conn) -> None:
     if not variable_specs:
         ctx.error(ctx.job_id, "variable_specs or variables is required")
         return
+    logger.debug(f"[rename] Loaded {len(variable_specs)} variable specs: {[s.get('name') for s in variable_specs]}")
+    for spec in variable_specs:
+        logger.debug(f"  - {spec.get('name')}: {len(spec.get('values', []))} values")
     spec_names = {spec.get("name") for spec in variable_specs}
     missing = [name for name in order if name not in spec_names]
     if missing:
@@ -43,6 +49,7 @@ def handle_rename(ctx: JobContext, conn) -> None:
 
     image_paths = iter_image_files(folder)
     total = len(image_paths)
+    logger.info(f"[rename] Found {total} images in {folder}")
     processed = 0
     errors = 0
     skipped = 0
@@ -93,8 +100,11 @@ def handle_rename(ctx: JobContext, conn) -> None:
                 return
             try:
                 tags = load_tags(conn, path, include_negative)
+                logger.debug(f"[rename] {path}: {len(tags)} tags loaded")
                 matches = match_variable_specs(variable_specs, tags)
+                logger.debug(f"[rename] {path}: matches={matches}")
             except Exception as exc:
+                logger.exception(f"[rename] Error processing {path}: {exc}")
                 errors += 1
                 processed += 1
                 ctx.emit(

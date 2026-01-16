@@ -1,4 +1,4 @@
-import type { IpcMessage, IpcRunRequest } from "./types";
+﻿import type { IpcMessage, IpcRunRequest } from "./types";
 import type { Preset, PresetValue } from "./preset";
 
 type PresetJobMode = "load" | "save" | "import";
@@ -26,6 +26,12 @@ export function createPresetJobManager(deps: PresetJobDeps) {
   let jobMode: PresetJobMode | null = null;
   let importTarget: ImportTarget | null = null;
 
+  function reset() {
+    jobId = null;
+    jobMode = null;
+    importTarget = null;
+  }
+
   function handleMessage(message: IpcMessage): boolean {
     if (!jobId || message.id !== jobId) {
       return false;
@@ -36,40 +42,46 @@ export function createPresetJobManager(deps: PresetJobDeps) {
         message.payload && typeof message.payload === "object"
           ? (message.payload as Record<string, unknown>)
           : null;
-      if (jobMode === "load" && payload?.preset) {
-        deps.setTemplate(payload.preset as Preset);
-        const path = typeof payload.path === "string" ? payload.path : deps.getPresetPath();
-        if (path) {
-          deps.setPresetPath(path);
+      if (jobMode === "load") {
+        if (payload?.preset) {
+          deps.setTemplate(payload.preset as Preset);
+          const path = typeof payload.path === "string" ? payload.path : deps.getPresetPath();
+          if (path) {
+            deps.setPresetPath(path);
+          }
+          deps.setStatus("템플릿 파일 불러오기 완료");
+        } else {
+          deps.setStatus("템플릿 데이터를 찾을 수 없습니다.");
         }
-        deps.setStatus("템플릿 불러오기 완료");
       } else if (jobMode === "save") {
         const path = typeof payload?.path === "string" ? payload.path : deps.getPresetPath();
         if (path) {
           deps.setPresetPath(path);
         }
-        deps.setStatus("템플릿 저장 완료");
-      } else if (jobMode === "import" && payload?.values) {
-        const values = deps.coerceValues(payload.values);
-        const target = importTarget;
-        if (target && values.length > 0) {
-          deps.applyBuildValues(target.variableName, values, target.mode);
-          deps.setStatus("프리셋 값 가져오기 완료");
+        deps.setStatus("템플릿 파일 저장 완료");
+      } else if (jobMode === "import") {
+        if (payload?.values) {
+          const values = deps.coerceValues(payload.values);
+          const target = importTarget;
+          if (target && values.length > 0) {
+            deps.applyBuildValues(target.variableName, values, target.mode);
+            deps.setStatus("프리셋 불러오기 완료");
+          } else {
+            deps.setStatus("가져온 값이 없습니다.");
+          }
         } else {
-          deps.setStatus("가져온 값이 없습니다.");
+          deps.setStatus("프리셋 데이터를 찾을 수 없습니다.");
         }
       }
-      jobId = null;
-      jobMode = null;
-      importTarget = null;
+      reset();
       return true;
     }
 
     if (message.type === "error") {
-      deps.setStatus(`오류: ${message.message ?? "알 수 없음"}`);
-      jobId = null;
-      jobMode = null;
-      importTarget = null;
+      const text = `오류: ${message.message ?? "알 수 없음"}`;
+      deps.setStatus(text);
+      deps.appendLog(text);
+      reset();
       return true;
     }
 
@@ -78,11 +90,12 @@ export function createPresetJobManager(deps: PresetJobDeps) {
 
   async function runPresetLoad(path: string) {
     if (!deps.isTauri()) {
-      deps.setStatus("브라우저 모드에서는 실행할 수 없습니다.");
-      deps.appendLog("브라우저 모드에서는 실행할 수 없습니다.");
+      const text = "브라우저 모드에서는 실행할 수 없습니다.";
+      deps.setStatus(text);
+      deps.appendLog(text);
       return;
     }
-    deps.setStatus("템플릿 불러오는 중...");
+    deps.setStatus("템플릿 파일 불러오는 중...");
     jobMode = "load";
     jobId = `preset-load-${Date.now()}`;
     try {
@@ -93,20 +106,21 @@ export function createPresetJobManager(deps: PresetJobDeps) {
         payload: { path },
       });
     } catch (error) {
-      deps.setStatus(`오류: ${String(error)}`);
-      deps.appendLog(`오류: ${String(error)}`);
-      jobId = null;
-      jobMode = null;
+      const text = `오류: ${String(error)}`;
+      deps.setStatus(text);
+      deps.appendLog(text);
+      reset();
     }
   }
 
   async function runPresetSave(path: string) {
     if (!deps.isTauri()) {
-      deps.setStatus("브라우저 모드에서는 실행할 수 없습니다.");
-      deps.appendLog("브라우저 모드에서는 실행할 수 없습니다.");
+      const text = "브라우저 모드에서는 실행할 수 없습니다.";
+      deps.setStatus(text);
+      deps.appendLog(text);
       return;
     }
-    deps.setStatus("템플릿 저장 중...");
+    deps.setStatus("템플릿 파일 저장 중...");
     jobMode = "save";
     jobId = `preset-save-${Date.now()}`;
     try {
@@ -117,10 +131,10 @@ export function createPresetJobManager(deps: PresetJobDeps) {
         payload: { path, preset: deps.getTemplate() },
       });
     } catch (error) {
-      deps.setStatus(`오류: ${String(error)}`);
-      deps.appendLog(`오류: ${String(error)}`);
-      jobId = null;
-      jobMode = null;
+      const text = `오류: ${String(error)}`;
+      deps.setStatus(text);
+      deps.appendLog(text);
+      reset();
     }
   }
 
@@ -130,11 +144,12 @@ export function createPresetJobManager(deps: PresetJobDeps) {
     variableName: string
   ) {
     if (!deps.isTauri()) {
-      deps.setStatus("브라우저 모드에서는 실행할 수 없습니다.");
-      deps.appendLog("브라우저 모드에서는 실행할 수 없습니다.");
+      const text = "브라우저 모드에서는 실행할 수 없습니다.";
+      deps.setStatus(text);
+      deps.appendLog(text);
       return;
     }
-    deps.setStatus("프리셋 값 가져오는 중...");
+    deps.setStatus("프리셋 불러오는 중...");
     jobMode = "import";
     jobId = `preset-import-${Date.now()}`;
     importTarget = { variableName, mode };
@@ -146,11 +161,10 @@ export function createPresetJobManager(deps: PresetJobDeps) {
         payload: { path },
       });
     } catch (error) {
-      deps.setStatus(`오류: ${String(error)}`);
-      deps.appendLog(`오류: ${String(error)}`);
-      jobId = null;
-      jobMode = null;
-      importTarget = null;
+      const text = `오류: ${String(error)}`;
+      deps.setStatus(text);
+      deps.appendLog(text);
+      reset();
     }
   }
 

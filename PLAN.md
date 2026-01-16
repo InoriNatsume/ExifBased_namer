@@ -20,6 +20,7 @@
   - images(id, path, mtime, size, hash)
   - tags(image_id, tag)
   - matches(image_id, variable, status, values)
+- templates/presets 테이블 추가 [x]
 - 인덱스 설계 [x]
   - path/mtime/tag/variable/status
 - 스캔 파이프라인 [x]
@@ -116,7 +117,7 @@
   - 결과 목록은 작업 단위로 분리 보관
 
 ## 3-3. 선택 보강(확장 옵션)
-- 태그 출처 분리 저장(positive/negative/char)
+- 태그 출처 분리 저장(positive/negative/char) [x]
 - 변수별 매칭 결과 캐시(DB)
 - 대규모 스캔 성능 측정 지표 기록 [x]
 

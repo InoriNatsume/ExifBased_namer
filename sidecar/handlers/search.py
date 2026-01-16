@@ -87,7 +87,13 @@ def handle_search(ctx: JobContext, conn) -> None:
         apply_thumb_policy(ctx.payload)
         return
 
-    results = search_by_tags(conn, required_tags, limit=limit, offset=offset)
+    results = search_by_tags(
+        conn,
+        required_tags,
+        include_negative=include_negative,
+        limit=limit,
+        offset=offset,
+    )
     for path in results:
         preview = ensure_preview(ctx.payload, path)
         ctx.emit(

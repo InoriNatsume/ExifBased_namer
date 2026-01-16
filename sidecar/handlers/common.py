@@ -18,7 +18,7 @@ def load_tags(
     path: str,
     include_negative: bool,
 ) -> list[str]:
-    tags = get_tags_for_path(conn, path)
+    tags = get_tags_for_path(conn, path, include_negative=include_negative)
     if tags is not None:
         return tags
     return extract_tags_from_image(path, include_negative)

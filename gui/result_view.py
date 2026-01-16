@@ -47,7 +47,7 @@ class ResultView:
         self.pane = ttk.PanedWindow(parent, orient=tk.HORIZONTAL)
         self.pane.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
 
-        list_frame = ttk.Frame(pane)
+        list_frame = ttk.Frame(self.pane)
         self.listbox = tk.Listbox(list_frame)
         scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=self.listbox.yview)
         self.listbox.configure(yscrollcommand=scrollbar.set)
@@ -56,7 +56,7 @@ class ResultView:
         self.listbox.bind("<<ListboxSelect>>", self._on_select)
         self.pane.add(list_frame, weight=list_weight)
 
-        preview_frame = ttk.Frame(pane)
+        preview_frame = ttk.Frame(self.pane)
         ttk.Label(preview_frame, textvariable=self.preview_path_var).pack(
             fill=tk.X, padx=6, pady=4
         )

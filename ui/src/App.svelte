@@ -16,8 +16,11 @@
     type ResultRecord,
     type ResultStatus,
   } from "./lib/models";
-  import type { Preset } from "./lib/preset";
+  import type { Preset, PresetValue } from "./lib/preset";
   import { createPresetJobManager } from "./lib/presetJobs";
+  import type { PresetInfo, TemplateInfo } from "./lib/dbModels";
+  import { createPresetDbManager } from "./lib/presetDbJobs";
+  import { createTemplateDbManager } from "./lib/templateDbJobs";
   import { jobStore, logStore, resultStore, templateStore } from "./lib/stores";
   import { applyBuildValues, coerceValues } from "./lib/templateOps";
   import EditorView from "./components/EditorView.svelte";
@@ -42,6 +45,11 @@
   let activeJobId: string | null = null;
   let presetPath: string | null = null;
   let presetStatus = "";
+  let templateDbStatus = "";
+  let templateDbItems: TemplateInfo[] = [];
+  let templateDbSelected: string | null = null;
+  let presetDbStatus = "";
+  let presetDbItems: PresetInfo[] = [];
   let resumeClearJobId: string | null = null;
   let buildStatus = "";
   let buildCommonTags: string[] = [];
@@ -66,6 +74,19 @@
     window.localStorage.removeItem("nai.preset.path");
   }
 
+  function setTemplateDbName(name: string | null) {
+    templateDbSelected = name;
+    if (typeof window === "undefined") {
+      return;
+    }
+    const storageKey = "nai.template.db.name";
+    if (!name) {
+      window.localStorage.removeItem(storageKey);
+      return;
+    }
+    window.localStorage.setItem(storageKey, name);
+  }
+
   const presetJobs = createPresetJobManager({
     isTauri: () => tauriMode,
     getPresetPath: () => presetPath,
@@ -78,6 +99,35 @@
     getTemplate: () => get(templateStore),
     coerceValues,
     applyBuildValues,
+    runSidecarJob,
+  });
+
+  const templateDbJobs = createTemplateDbManager({
+    isTauri: () => tauriMode,
+    setStatus: (text) => {
+      templateDbStatus = text;
+    },
+    appendLog,
+    setTemplates: (items) => {
+      templateDbItems = items;
+    },
+    setTemplate: (preset) => templateStore.set(preset),
+    setSelectedName: setTemplateDbName,
+    runSidecarJob,
+  });
+
+  const presetDbJobs = createPresetDbManager({
+    isTauri: () => tauriMode,
+    setStatus: (text) => {
+      presetDbStatus = text;
+    },
+    appendLog,
+    setPresets: (items) => {
+      presetDbItems = items;
+    },
+    applyValues: (variableName, values, mode) => {
+      applyBuildValues(variableName, values, mode);
+    },
     runSidecarJob,
   });
 
@@ -174,6 +224,14 @@
   function onMessage(message: IpcMessage) {
     if (message.type === "log") {
       appendLog(message.message ?? "로그 수신");
+      return;
+    }
+
+    if (templateDbJobs.handleMessage(message)) {
+      return;
+    }
+
+    if (presetDbJobs.handleMessage(message)) {
       return;
     }
 
@@ -524,19 +582,79 @@
     templateStore.set({ ...next });
   }
 
+  function refreshTemplateDb() {
+    templateDbJobs.runList();
+  }
+
+  function loadTemplateDb(name: string) {
+    templateDbJobs.runGet(name);
+  }
+
+  function saveTemplateDb() {
+    templateDbJobs.runSave(get(templateStore));
+  }
+
+  function deleteTemplateDb(name: string) {
+    if (templateDbSelected === name) {
+      setTemplateDbName(null);
+    }
+    templateDbJobs.runDelete(name);
+  }
+
+  function refreshPresetDb(variableName: string | null) {
+    if (!variableName) {
+      presetDbItems = [];
+      presetDbStatus = "변수를 선택하세요.";
+      return;
+    }
+    presetDbJobs.runList(variableName);
+  }
+
+  function applyPresetDb(
+    presetId: number,
+    mode: "replace" | "append",
+    variableName: string
+  ) {
+    presetDbJobs.runGet(presetId, variableName, mode);
+  }
+
+  function savePresetDb(payload: {
+    name: string;
+    sourceKind: string;
+    variableName: string;
+    values: PresetValue[];
+  }) {
+    presetDbJobs.runSave(payload);
+  }
+
+  function deletePresetDb(presetId: number) {
+    presetDbJobs.runDelete(presetId);
+  }
+
   onMount(async () => {
     tauriMode = isTauri();
     setJobStatus(tauriMode ? "대기" : "브라우저 모드");
     try {
       await connectSidecar(onMessage);
       appendLog("IPC 연결 준비 완료");
+      if (tauriMode) {
+        templateDbJobs.runList();
+      }
       if (typeof window !== "undefined") {
-        const stored =
-          window.localStorage.getItem("nai.template.path") ??
-          window.localStorage.getItem("nai.preset.path");
-        if (stored) {
-          setPresetPath(stored);
-          presetJobs.runPresetLoad(stored);
+        const storedDbName = window.localStorage.getItem("nai.template.db.name");
+        if (storedDbName) {
+          setTemplateDbName(storedDbName);
+          if (tauriMode) {
+            templateDbJobs.runGet(storedDbName);
+          }
+        } else {
+          const stored =
+            window.localStorage.getItem("nai.template.path") ??
+            window.localStorage.getItem("nai.preset.path");
+          if (stored) {
+            setPresetPath(stored);
+            presetJobs.runPresetLoad(stored);
+          }
         }
       }
     } catch (error) {
@@ -567,6 +685,9 @@
         preset={$templateStore}
         presetPath={presetPath}
         presetStatus={presetStatus}
+        templateDbItems={templateDbItems}
+        templateDbSelected={templateDbSelected}
+        templateDbStatus={templateDbStatus}
         onChange={updatePreset}
         onBuild={runBuild}
         onPresetLoad={presetJobs.runPresetLoad}
@@ -576,6 +697,16 @@
           presetStatus = "템플릿 자동 불러오기 경로를 초기화했습니다.";
         }}
         onPresetImport={presetJobs.runPresetImport}
+        onTemplateDbRefresh={refreshTemplateDb}
+        onTemplateDbLoad={loadTemplateDb}
+        onTemplateDbSave={saveTemplateDb}
+        onTemplateDbDelete={deleteTemplateDb}
+        presetDbItems={presetDbItems}
+        presetDbStatus={presetDbStatus}
+        onPresetDbRefresh={refreshPresetDb}
+        onPresetDbApply={applyPresetDb}
+        onPresetDbSave={savePresetDb}
+        onPresetDbDelete={deletePresetDb}
         {buildStatus}
         buildStats={buildStats}
         buildCommonTags={buildCommonTags}

@@ -24,6 +24,14 @@ from sidecar.jobs import (
     handle_preset_import,
     handle_preset_load,
     handle_preset_save,
+    handle_preset_db_delete,
+    handle_preset_db_get,
+    handle_preset_db_list,
+    handle_preset_db_save,
+    handle_template_db_delete,
+    handle_template_db_get,
+    handle_template_db_list,
+    handle_template_db_save,
 )
 
 
@@ -50,6 +58,14 @@ def main() -> None:
         "preset_load": handle_preset_load,
         "preset_save": handle_preset_save,
         "preset_import": handle_preset_import,
+        "template_db_list": handle_template_db_list,
+        "template_db_get": handle_template_db_get,
+        "template_db_save": handle_template_db_save,
+        "template_db_delete": handle_template_db_delete,
+        "preset_db_list": handle_preset_db_list,
+        "preset_db_get": handle_preset_db_get,
+        "preset_db_save": handle_preset_db_save,
+        "preset_db_delete": handle_preset_db_delete,
     }
 
     def _make_conn():

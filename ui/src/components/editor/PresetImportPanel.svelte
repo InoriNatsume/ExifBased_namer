@@ -1,4 +1,4 @@
-<script lang="ts">
+﻿<script lang="ts">
   import { pickFile } from "../../lib/dialog";
 
   export type ImportMode = "replace" | "append";
@@ -10,7 +10,7 @@
 
   async function importPreset() {
     if (!variableName) {
-      alert("대상 변수를 먼저 선택하세요.");
+      alert("대상 변수를 선택하세요.");
       return;
     }
     const path = await pickFile(["json"]);
@@ -42,7 +42,7 @@
     </button>
   </div>
   <div class="muted">
-    프리셋은 변수 1개 단위입니다. 불러온 뒤 태그 편집의 공통 태그 제외로 공통 태그
-    표시/제거가 가능합니다.
+    프리셋은 변수 1개 단위입니다. 불러온 뒤 태그 편집의 공통 태그 제외로
+    공통 태그 표시/제거가 가능합니다.
   </div>
 </div>

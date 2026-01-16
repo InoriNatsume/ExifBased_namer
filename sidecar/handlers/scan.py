@@ -2,7 +2,7 @@ import multiprocessing as mp
 import os
 
 from core.db.query import get_image_meta
-from core.db.storage import replace_tags, upsert_image
+from core.db.storage import replace_payloads, replace_tags, upsert_image
 from core.utils import iter_image_files
 
 from ..job_manager import JobContext
@@ -107,7 +107,17 @@ def handle_scan(ctx: JobContext, conn) -> None:
         ctx_obj = mp.get_context("spawn")
         chunksize = max(1, len(tasks) // (workers * 4) or 1)
         with ctx_obj.Pool(processes=workers) as pool:
-            for path, mtime, size, tags, error in pool.imap_unordered(
+            for (
+                path,
+                mtime,
+                size,
+                payloads,
+                tags_pos,
+                tags_neg,
+                tags_char,
+                tag_rows,
+                error,
+            ) in pool.imap_unordered(
                 extract_task, tasks, chunksize=chunksize
             ):
                 if ctx.is_cancelled():
@@ -134,9 +144,12 @@ def handle_scan(ctx: JobContext, conn) -> None:
                         int(mtime),
                         int(size),
                         None,
-                        tags or [],
+                        tags_pos or [],
+                        tags_neg or [],
+                        tags_char or [],
                     )
-                    replace_tags(conn, image_id, tags or [])
+                    replace_tags(conn, image_id, tag_rows or [])
+                    replace_payloads(conn, image_id, payloads or [])
                     written += 1
                     processed += 1
                     if written % commit_step == 0:

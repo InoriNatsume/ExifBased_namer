@@ -299,3 +299,147 @@ done payload
 
 ## Windows CMD 참고
 - 경로에 `\`가 있으면 `\\`로 이스케이프 필요
+
+### template_db_list
+설명: 템플릿 목록 조회(DB).
+payload
+```json
+{}
+```
+done payload
+```json
+{
+  "templates": [{"id": 1, "name": "main", "updated_at": "..." }]
+}
+```
+
+### template_db_get
+설명: 템플릿 단건 조회(DB).
+payload
+```json
+{
+  "id": 1,
+  "name": "main"
+}
+```
+done payload
+```json
+{
+  "id": 1,
+  "name": "main",
+  "payload": {"name": "main", "variables": []},
+  "updated_at": "..."
+}
+```
+
+### template_db_save
+설명: 템플릿 저장(DB).
+payload
+```json
+{
+  "name": "main",
+  "template": {"name": "main", "variables": []}
+}
+```
+done payload
+```json
+{
+  "id": 1,
+  "name": "main"
+}
+```
+
+### template_db_delete
+설명: 템플릿 삭제(DB).
+payload
+```json
+{
+  "name": "main"
+}
+```
+done payload
+```json
+{
+  "name": "main"
+}
+```
+
+### preset_db_list
+설명: 프리셋 목록 조회(DB).
+payload
+```json
+{
+  "source_kind": "nais",
+  "variable_name": "emotion"
+}
+```
+done payload
+```json
+{
+  "presets": [
+    {
+      "id": 10,
+      "name": "emo-pack",
+      "source_kind": "nais",
+      "variable_name": "emotion",
+      "updated_at": "..."
+    }
+  ]
+}
+```
+
+### preset_db_get
+설명: 프리셋 단건 조회(DB).
+payload
+```json
+{
+  "id": 10
+}
+```
+done payload
+```json
+{
+  "id": 10,
+  "name": "emo-pack",
+  "source_kind": "nais",
+  "variable_name": "emotion",
+  "payload": {"name": "emo-pack", "source_kind": "nais", "variable_name": "emotion", "values": []},
+  "updated_at": "..."
+}
+```
+
+### preset_db_save
+설명: 프리셋 저장(DB).
+payload
+```json
+{
+  "preset": {
+    "name": "emo-pack",
+    "source_kind": "nais",
+    "variable_name": "emotion",
+    "values": [{"name": "angry", "tags": ["tag1"]}]
+  }
+}
+```
+done payload
+```json
+{
+  "id": 10,
+  "name": "emo-pack"
+}
+```
+
+### preset_db_delete
+설명: 프리셋 삭제(DB).
+payload
+```json
+{
+  "id": 10
+}
+```
+done payload
+```json
+{
+  "id": 10
+}
+```

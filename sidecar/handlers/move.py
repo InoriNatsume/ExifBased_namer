@@ -12,6 +12,8 @@ from .thumbs import apply_thumb_policy, ensure_preview
 
 def handle_move(ctx: JobContext, conn) -> None:
     folder = ctx.payload.get("folder")
+    # 계층별 분류: variable_tree가 배열이면 여러 변수 순서대로 폴더 위계 생성
+    variable_tree = ctx.payload.get("variable_tree") or []
     variable_name = ctx.payload.get("variable_name") or ""
     template = ctx.payload.get("template") or "[value]"
     target_root = ctx.payload.get("target_root") or ""
@@ -22,11 +24,19 @@ def handle_move(ctx: JobContext, conn) -> None:
     resume_path = ctx.payload.get("resume_path")
     checkpoint_step = max(1, int(ctx.payload.get("checkpoint_step") or 200))
 
+    # variable_tree가 있으면 그것을 사용, 없으면 단일 variable_name을 리스트로
+    if isinstance(variable_tree, list) and len(variable_tree) > 0:
+        var_list = variable_tree
+    elif variable_name:
+        var_list = [variable_name]
+    else:
+        var_list = []
+
     if not folder:
         ctx.error(ctx.job_id, "folder is required")
         return
-    if not variable_name:
-        ctx.error(ctx.job_id, "variable_name is required")
+    if not var_list:
+        ctx.error(ctx.job_id, "variable_tree or variable_name is required")
         return
     if not target_root:
         ctx.error(ctx.job_id, "target_root is required")
@@ -37,9 +47,10 @@ def handle_move(ctx: JobContext, conn) -> None:
         ctx.error(ctx.job_id, "variable_specs or variables is required")
         return
     spec_names = {spec.get("name") for spec in variable_specs}
-    if variable_name not in spec_names:
-        ctx.error(ctx.job_id, f"unknown variable_name: {variable_name}")
-        return
+    for vn in var_list:
+        if vn not in spec_names:
+            ctx.error(ctx.job_id, f"unknown variable in tree: {vn}")
+            return
 
     image_paths = iter_image_files(folder)
     total = len(image_paths)
@@ -131,20 +142,47 @@ def handle_move(ctx: JobContext, conn) -> None:
                     )
                 continue
 
-            match = matches.get(variable_name, {})
-            status = match.get("status") or "UNKNOWN"
+            # 계층별 분류: var_list의 각 변수에 대해 폴더 경로 조합
+            # OK인 변수들까지만 폴더 경로를 만들고, 나머지는 실패해도 부분 분류
+            folder_parts = []
+            last_fail_status = None  # 마지막으로 실패한 상태
+            for vn in var_list:
+                match = matches.get(vn, {})
+                st = match.get("status") or "UNKNOWN"
+                if st == "OK":
+                    val = match.get("values", [""])[0]
+                    part = render_template(template, {"value": val})
+                    part = sanitize_filename(part)
+                    if part:
+                        folder_parts.append(part)
+                    else:
+                        last_fail_status = "ERROR"
+                        break
+                else:
+                    # OK가 아닌 경우 여기서 멈추고, 지금까지 모은 folder_parts로 분류
+                    last_fail_status = st
+                    break
 
-            if status != "OK":
+            # 전체 OK면 OK, 부분 분류면 PARTIAL, 아무것도 못하면 원래 상태
+            if len(folder_parts) == len(var_list):
+                overall_status = "OK"
+            elif len(folder_parts) > 0:
+                overall_status = "PARTIAL"  # 부분 분류됨
+            else:
+                overall_status = last_fail_status or "UNKNOWN"
+
+            # 폴더 경로가 하나도 없으면 분류 불가 (UNKNOWN, CONFLICT 등)
+            if not folder_parts:
                 processed += 1
                 preview = ensure_preview(ctx.payload, path)
                 ctx.emit(
                     {
                         "id": ctx.job_id,
                         "type": "result",
-                        "status": status,
+                        "status": overall_status,
                         "source": path,
                         "target": None,
-                        "message": None,
+                        "message": f"1단계 변수부터 매칭 실패",
                         "preview": preview,
                     }
                 )
@@ -166,40 +204,13 @@ def handle_move(ctx: JobContext, conn) -> None:
                     )
                 continue
 
-            value_name = match.get("values", [""])[0]
-            folder_name = render_template(template, {"value": value_name})
-            folder_name = sanitize_filename(folder_name)
-            if not folder_name:
-                errors += 1
-                processed += 1
-                ctx.emit(
-                    {
-                        "id": ctx.job_id,
-                        "type": "result",
-                        "status": "ERROR",
-                        "source": path,
-                        "message": "empty folder name",
-                    }
-                )
-                if resume_file:
-                    resume_file.write(f"{path}\n")
-                    resume_written += 1
-                    if resume_written % checkpoint_step == 0:
-                        resume_file.flush()
-                if processed % progress_step == 0 or processed == total:
-                    ctx.emit(
-                        {
-                            "id": ctx.job_id,
-                            "type": "progress",
-                            "processed": processed,
-                            "total": total,
-                            "errors": errors,
-                            "skipped": skipped,
-                        }
-                    )
-                continue
-
-            target_folder = str(Path(target_root) / folder_name)
+            # 계층 폴더 경로 생성
+            target_folder = Path(target_root)
+            for part in folder_parts:
+                target_folder = target_folder / part
+            target_folder = str(target_folder)
+            # 결과에 표시할 분류 폴더 (target_root 상대경로)
+            classified_folder = "/".join(folder_parts)
             if target_folder not in reserved_map:
                 try:
                     names = {
@@ -261,6 +272,7 @@ def handle_move(ctx: JobContext, conn) -> None:
                     "status": "OK",
                     "source": path,
                     "target": target,
+                    "folder": classified_folder,  # 분류된 폴더 경로 (탐색용)
                     "message": None,
                     "preview": preview,
                 }
