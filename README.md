@@ -2,7 +2,7 @@
 
 [![Tests](https://github.com/InoriNatsume/ExifBased_namer/actions/workflows/tests.yml/badge.svg)](https://github.com/InoriNatsume/ExifBased_namer/actions/workflows/tests.yml)
 
-NovelAI 이미지 태그 추출/검색/파일명 변경/폴더 분류 도구.
+NovelAI의 이미지 exif에 기반하여 태그 추출/검색/파일명 변경/폴더 분류를 하는 도구.
 
 ---
 
