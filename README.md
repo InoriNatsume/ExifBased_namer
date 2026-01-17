@@ -423,6 +423,21 @@ presets(id, name, source_kind, variable_name, payload, updated_at)
 
 ## 라이선스
 
-MIT License
+gpl 3.0
 
-Private
+## Credit
+
+
+UI
+
+- https://arca.live/b/characterai/155936654
+
+- https://arca.live/b/characterai/159771658
+
+
+포맷
+
+- https://github.com/sunanakgo/NAIS2
+
+- SDStudio 
+
